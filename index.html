@@ -1,0 +1,938 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>2027 수능 LLM 채점표</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: OMR 답안지처럼 왼쪽 타이밍 마크가 있는 머리글 + 탭 + 넓은 표 영역, 오른쪽 문항 상세 서랍 */
+:root{
+  --bg:#f4f5f8; --panel:#ffffff; --sunk:#eceef3; --ink:#152033; --muted:#5a6578; --line:#d9dde6;
+  --accent:#2445a6; --accent-soft:#e3e9fb; --m0:#2445a6; --m1:#d0661c; --m2:#7a45c9; --m3:#0f8a7c; --m4:#c23f7c;
+  --ok:#1d8a5a; --bad:#cf3a3a; --warn:#c2840f; --na:#7f74a3;
+  --g-com:#2445a6; --g-open:#c2610f; --g-dec:#7a7f8c;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Consolas",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e131a; --panel:#161d27; --sunk:#111821; --ink:#e5eaf2; --muted:#97a2b4; --line:#2a3443;
+  --accent:#86a2f6; --accent-soft:#1f2a45; --m0:#86a2f6; --m1:#f0a061; --m2:#b896f0; --m3:#4fc8b8; --m4:#ef8fbd;
+  --ok:#3cbf85; --bad:#f06b6b; --warn:#e2ad3b; --na:#a89cd2;
+  --g-com:#86a2f6; --g-open:#f0a052; --g-dec:#9aa0ad; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e131a; --panel:#161d27; --sunk:#111821; --ink:#e5eaf2; --muted:#97a2b4; --line:#2a3443;
+  --accent:#86a2f6; --accent-soft:#1f2a45; --m0:#86a2f6; --m1:#f0a061; --m2:#b896f0; --m3:#4fc8b8; --m4:#ef8fbd;
+  --ok:#3cbf85; --bad:#f06b6b; --warn:#e2ad3b; --na:#a89cd2;
+  --g-com:#86a2f6; --g-open:#f0a052; --g-dec:#9aa0ad; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
+.wrap{max-width:1440px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 64px}
+header.top{display:grid;grid-template-columns:10px 1fr;gap:16px;align-items:stretch}
+.timing{background:repeating-linear-gradient(to bottom,var(--ink) 0 6px,transparent 6px 14px);border-radius:1px;opacity:.85}
+h1{font-size:clamp(22px,3vw,30px);margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0;max-width:80ch}
+.sub a{color:var(--accent)}
+.meta-row{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:10px;font-size:12.5px;color:var(--muted)}
+.meta-row b{color:var(--ink);font-weight:600}
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;flex-wrap:wrap;margin:18px 0 14px;padding:8px 0;border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+nav.tabs a{padding:7px 12px;border-radius:6px;color:var(--muted);text-decoration:none;font-weight:500}
+nav.tabs a:hover{background:var(--sunk);color:var(--ink)}
+nav.tabs a[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:4px 10px;border-radius:999px;font:500 12.5px var(--f-body);cursor:pointer}
+.chip[aria-pressed="false"]{opacity:.45}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.g-commercial{background:var(--g-com)} .g-open{background:var(--g-open)} .g-decision{background:var(--g-dec)}
+section.view{display:grid;gap:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;min-width:0}
+.panel h2{font-size:16px;margin:0 0 4px;font-weight:600}
+.panel .hint{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:90ch}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+label.ctl{display:inline-flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted)}
+select,button.btn,input[type=file]{font:500 13px var(--f-body);color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 10px}
+button.btn{cursor:pointer} button.btn:hover{background:var(--sunk)}
+button.btn.primary{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.scroll{overflow-x:auto;max-width:100%}
+table{border-collapse:collapse;font-variant-numeric:tabular-nums}
+table.data{width:100%;font-size:13px}
+table.data th,table.data td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+table.data th{font-weight:600;color:var(--muted);font-size:12px;position:sticky;top:0;background:var(--panel)}
+table.data th.sortable{cursor:pointer} table.data th.sortable:hover{color:var(--ink)}
+table.data th.sorted::after{content:" ▾"}
+table.data td.l,table.data th.l{text-align:left}
+td.name{font-weight:500}
+td.name small{display:block;color:var(--muted);font-weight:400;font-size:11.5px}
+td.heat{position:relative}
+.grp{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.mono{font-family:var(--f-mono)}
+.muted{color:var(--muted)}
+/* question grid */
+table.grid{font-size:11.5px}
+table.grid th,table.grid td{border:1px solid var(--line);padding:0;text-align:center;min-width:24px;height:24px}
+table.grid thead th{background:var(--sunk);color:var(--muted);font-weight:500;font-family:var(--f-mono);position:sticky;top:0}
+table.grid th.rowh{position:sticky;left:0;z-index:2;background:var(--panel);text-align:left;padding:0 8px;min-width:190px;font-weight:500;font-family:var(--f-body);color:var(--ink);white-space:nowrap}
+table.grid thead th.rowh{z-index:3;background:var(--sunk)}
+table.grid th.rowh small{color:var(--muted);font-family:var(--f-mono);margin-left:6px}
+td.c{cursor:pointer;font-family:var(--f-mono);font-weight:600}
+td.c:hover{outline:2px solid var(--ink);outline-offset:-2px}
+td.s0{background:color-mix(in srgb,var(--ok) 22%,var(--panel));color:color-mix(in srgb,var(--ok) 75%,var(--ink))}
+td.s1{background:color-mix(in srgb,var(--bad) 80%,var(--panel));color:#fff}
+td.s2{background:color-mix(in srgb,var(--warn) 70%,var(--panel));color:#fff}
+td.s3{background:color-mix(in srgb,var(--na) 70%,var(--panel));color:#fff}
+tr.foot th,tr.foot td{background:var(--sunk);color:var(--muted);font-family:var(--f-mono);font-weight:500}
+.pts4{color:var(--bad)!important}
+.img-mark{display:block;font-size:9px;line-height:1;color:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-top:10px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:3px;display:inline-block}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:16px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600;background:var(--sunk);color:var(--muted)}
+.pill.bad{background:color-mix(in srgb,var(--bad) 18%,var(--panel));color:var(--bad)}
+.pill.warn{background:color-mix(in srgb,var(--warn) 20%,var(--panel));color:var(--warn)}
+.pill.na{background:color-mix(in srgb,var(--na) 20%,var(--panel));color:var(--na)}
+.pill.ok{background:color-mix(in srgb,var(--ok) 18%,var(--panel));color:var(--ok)}
+.stats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--sunk)}
+/* bars */
+.bars{display:grid;gap:4px}
+.bar{display:grid;grid-template-columns:minmax(120px,230px) 1fr 56px;gap:10px;align-items:center;font-size:12.5px}
+.bar .track{height:14px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.bar .fill{height:100%}
+.bar .v{text-align:right;font-family:var(--f-mono)}
+.bar .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* drawer */
+aside.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--panel);border-left:1px solid var(--line);z-index:20;display:flex;flex-direction:column;box-shadow:-12px 0 32px rgba(0,0,0,.12);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.dhead{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-bottom:1px solid var(--line)}
+.dhead h3{margin:0;font-size:17px}
+.dhead .x{margin-left:auto}
+.dbody{overflow:auto;padding:14px 16px;display:grid;gap:14px;align-content:start}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.kv div{background:var(--sunk);border-radius:6px;padding:8px 10px}
+.kv b{display:block;font-size:11px;color:var(--muted);font-weight:500}
+.kv span{font-family:var(--f-mono);font-size:15px;font-weight:600}
+.ansgrp{display:grid;gap:6px}
+.ansrow{display:grid;grid-template-columns:62px 1fr;gap:8px;align-items:start;font-size:12.5px}
+.ansrow .tag{font-family:var(--f-body);font-size:14px;font-weight:600;text-align:center;border-radius:4px;padding:2px 0}
+.kv span{font-family:var(--f-body)!important;font-size:16px!important}
+.names{display:flex;flex-wrap:wrap;gap:4px}
+.names span{background:var(--sunk);border-radius:4px;padding:1px 6px;font-size:11.5px}
+.pdfbox{border:1px solid var(--line);border-radius:6px;background:var(--sunk);padding:8px}
+.pdfbox canvas{width:100%;height:auto;display:block;background:#fff;border-radius:3px}
+.pagebar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:12px}
+.pagebar button{padding:3px 8px;font-size:12px}
+.pagebar button[aria-pressed="true"]{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+.notice{border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--panel));padding:10px 12px;border-radius:4px;font-size:13px}
+.files{display:grid;gap:8px;margin-top:12px}
+.file{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--sunk);padding:8px 10px;border-radius:6px;font-size:13px}
+.file .fn{font-weight:500;min-width:0;overflow-wrap:anywhere;flex:1 1 200px}
+.loading{padding:40px;text-align:center;color:var(--muted)}
+ul.notes{margin:0;padding-left:18px;color:var(--muted);font-size:12.5px;display:grid;gap:4px;max-width:100ch}
+/* model dashboard */
+.mhead{display:flex;flex-wrap:wrap;gap:16px;align-items:center}
+.mhead h2{font-size:22px;margin:0}
+.rank{font-family:var(--f-mono);font-size:13px;background:var(--ink);color:var(--bg);border-radius:4px;padding:2px 8px}
+.dash{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px}
+@media (max-width:900px){.dash{grid-template-columns:1fr}}
+.up{color:var(--ok)} .down{color:var(--bad)}
+tr.me td{background:var(--accent-soft)!important;font-weight:600}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip[aria-pressed="true"] .muted{color:inherit;opacity:.7}
+#groupFilters .chip[aria-pressed="true"]{background:var(--panel);color:var(--ink);border-color:var(--line)}
+#selBtn{opacity:1;border-color:var(--accent);color:var(--accent)}
+#selBtn[aria-pressed="true"]{background:var(--accent);color:var(--panel)}
+/* 모델 고르기 팝업 */
+dialog.pk{border:1px solid var(--line);border-radius:10px;padding:0;width:min(760px,calc(100% - 32px));max-height:min(80vh,720px);background:var(--panel);color:var(--ink);flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+dialog.pk[open]{display:flex}
+dialog.pk::backdrop{background:rgba(10,15,25,.45)}
+.pkhead{padding:14px 16px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+.pkhead h3{margin:0;font-size:16px}
+.pknote{margin:0;font-size:12.5px;color:var(--muted)}
+.pkhead input{font:14px var(--f-body);padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:100%}
+.pkbody{overflow:auto;padding:12px 16px;display:grid;gap:12px;align-content:start;min-height:120px}
+.pg{border:0;margin:0;padding:0;min-width:0}
+.pg legend{font-size:12px;font-weight:600;color:var(--muted);padding:0;margin-bottom:2px}
+.pgall{background:none;border:0;padding:0;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline dotted}
+.pgl{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:1px 8px}
+.pkm{display:flex;align-items:center;gap:8px;text-align:left;background:none;border:0;border-radius:5px;padding:5px 6px;font:13px var(--f-body);color:var(--ink);cursor:pointer;min-width:0}
+.pkm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pkm:hover{background:var(--sunk)}
+.pkm[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.pkm:disabled{opacity:.4;cursor:not-allowed}
+.cb{width:14px;height:14px;border:1.5px solid var(--muted);border-radius:3px;flex:none}
+.pkm[aria-pressed="true"] .cb{background:var(--accent);border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--panel)}
+.pkfoot{padding:10px 16px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center}
+.pkcount{margin-right:auto;font-size:12.5px;color:var(--muted)}
+/* 모델 상세 */
+.selcard{display:grid;gap:8px}
+.selrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.selrow .sl{font-size:12px;color:var(--muted);margin-right:2px}
+.mchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:5px 10px;font:500 13px var(--f-body);background:var(--panel);color:var(--ink)}
+button.mchip{cursor:pointer}
+.mchip.base{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:600}
+.mchip.base .muted{color:inherit;opacity:.7}
+.mchip button{border:0;background:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.mchip button:hover{color:var(--bad)}
+.selsum{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px}
+.acards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media (max-width:980px){.acards{grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr))}}
+.acard{display:grid;gap:8px;align-content:start;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px;cursor:pointer;color:var(--ink);font-family:var(--f-body);min-width:0}
+.acard:hover{border-color:var(--ink)}
+.acard[aria-expanded="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.acard .an{font-weight:700;font-size:15px;display:flex;justify-content:space-between;align-items:baseline}
+.acard .an small{color:var(--muted);font-weight:400;font-size:11.5px}
+.al{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:0 8px}
+.multi .al{border-top:1px solid var(--line);padding-top:6px}
+.alm{flex-basis:100%;color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.alv{font:700 22px var(--f-mono)} .multi .alv{font-size:16px}
+.alv small,.alp small{font-size:12px;color:var(--muted);font-weight:400}
+.alp{font:600 13px var(--f-mono)}
+.al{--mc:var(--m0)} .al.c1{--mc:var(--m1)} .al.c2{--mc:var(--m2)} .al.c3{--mc:var(--m3)} .al.c4{--mc:var(--m4)}
+.multi .al{border-left:3px solid var(--mc);padding-left:8px;border-top:0}
+.mdot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none;background:var(--mc,var(--m0));margin-right:5px;vertical-align:baseline}
+.c0{--mc:var(--m0)} .c1{--mc:var(--m1)} .c2{--mc:var(--m2)} .c3{--mc:var(--m3)} .c4{--mc:var(--m4)}
+.mbar{flex-basis:100%;height:7px;border-radius:4px;background:var(--sunk);overflow:hidden;position:relative}
+.mbar i{position:absolute;inset:0 auto 0 0;background:var(--mc);border-radius:4px}
+.mbar.full i{background:var(--ok)}
+.alfull{font:600 10.5px var(--f-body);color:var(--ok);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-left:4px;vertical-align:2px}
+.mchip.c1,.mchip.c2,.mchip.c3,.mchip.c4{border-left:4px solid var(--mc)}
+.mchip.base{box-shadow:inset 4px 0 0 var(--m0)}
+th.mh{text-align:center!important;border-bottom:0!important;color:var(--ink)!important}
+table.num td,table.num th{padding:6px 10px}
+table.num th small{display:block;font-weight:400;font-size:11px}
+h3.gh{font-size:14px;margin:18px 0 4px}
+.wl{display:grid;gap:6px;margin-top:10px}
+.wlr{display:grid;grid-template-columns:minmax(120px,220px) 1fr;gap:8px;align-items:start;font-size:13px}
+.wln{color:var(--muted);padding-top:3px}
+@media (max-width:640px){.wlr{grid-template-columns:1fr}}
+.qnums{display:flex;flex-wrap:wrap;gap:4px}
+.qn{font:600 12px var(--f-mono);border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:4px;padding:2px 6px;cursor:pointer;white-space:nowrap}
+.qn small{font-weight:400;color:var(--muted);margin-left:3px;font-size:10.5px}
+.qn.st1{color:var(--bad)} .qn.st2{color:var(--warn)} .qn.st3{color:var(--na)}
+.qn:hover{border-color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-right:1px solid var(--line);background:var(--panel);color:var(--ink);font:500 13px var(--f-body);padding:6px 12px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+table.stick td:first-child,table.stick th:first-child{position:sticky;left:0;background:var(--panel);z-index:1}
+table.stick th:first-child{z-index:2}
+td.z{color:var(--muted);opacity:.5} td.full{color:var(--bad);font-weight:700}
+.vlist{white-space:normal!important;font-size:12.5px;line-height:1.5;max-width:420px}
+@media (max-width:640px){.bar{grid-template-columns:110px 1fr 48px}.filters{margin-left:0}}
+@media (prefers-reduced-motion:no-preference){aside.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="timing" aria-hidden="true"></div>
+    <div>
+      <h1>2027 수능 LLM 채점표</h1>
+      <p class="sub">2027학년도 대학수학능력시험(2026.11.19 시행)을 AI 모델 35종이 풀이한 결과입니다. 문항별 정오, 과목별 성적, 오답 유형, 로컬(공개 가중치)·상용 비교를 볼 수 있습니다. 원본 데이터: <a href="https://hehee9.github.io/CSAT-benchmark/?exam=csat-2027&amp;mode=default&amp;scoreBasis=raw" target="_blank" rel="noopener">수능 LLM 풀이 대시보드 (hehee9)</a></p>
+      <div class="meta-row" id="metaRow"></div>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="보기">
+    <a href="#ranking">성적표</a>
+    <a href="#model">모델 상세</a>
+    <a href="#subject">과목별 정답수</a>
+    <a href="#insight">AI 취약 분석</a>
+    <a href="#grid">문항 정오표</a>
+    <a href="#types">오답 유형</a>
+    <a href="#local">로컬 vs 상용</a>
+    <a href="#source">원문제</a>
+    <div class="filters"><div class="filters" id="groupFilters" aria-label="모델 분류 필터"></div><button class="chip" id="selBtn" aria-expanded="false"></button></div>
+  </nav>
+
+  <main id="app"><div class="loading">채점 데이터를 불러오는 중…</div></main>
+</div>
+
+<aside class="drawer" id="drawer" hidden aria-label="문항 상세"></aside>
+<dialog class="pk" id="pickDlg" aria-label="모델 고르기">
+  <div class="pkhead"><h3></h3><p class="pknote"></p><input id="pkQ" type="search" placeholder="모델 이름이나 회사로 찾기" autocomplete="off"></div>
+  <div class="pkbody"></div>
+  <div class="pkfoot"><span class="pkcount"></span><button class="btn" data-pk-clear>선택 해제</button><button class="btn" data-pk-cancel>취소</button><button class="btn primary" data-pk-ok>적용</button></div>
+</dialog>
+
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = (a, b) => b ? (100 * a / b) : 0;
+const f1 = x => (Math.round(x * 10) / 10).toFixed(1).replace(/\.0$/, "");
+const CIRCLED = ["", "①", "②", "③", "④", "⑤"];
+
+/* ---------- 과목 구성 ---------- */
+const SOC = ["생활과윤리", "윤리와사상", "한국지리", "세계지리", "동아시아사", "세계사", "경제", "정치와법", "사회문화"];
+const SCI = ["물리1", "화학1", "생명1", "지구1", "물리2", "화학2", "생명2", "지구2"];
+const ORDER = ["국어-공통", "국어-화작", "국어-언매", "수학-공통", "수학-확통", "수학-미적", "수학-기하", "영어", "한국사", ...SOC, ...SCI];
+const LABEL = s => ({ "국어-공통": "국어 공통", "국어-화작": "국어 화법과 작문", "국어-언매": "국어 언어와 매체", "수학-공통": "수학 공통", "수학-확통": "수학 확률과 통계", "수학-미적": "수학 미적분", "수학-기하": "수학 기하" }[s] || s.replace(/1$/, "Ⅰ").replace(/2$/, "Ⅱ"));
+const isChoiceSheet = s => !/^수학/.test(s);
+function isMultipleChoice(sheet, n) {
+  if (sheet === "수학-공통") return n <= 15;
+  if (/^수학-/.test(sheet)) return n <= 28;
+  return true;
+}
+const fmtAns = (sheet, n, v) => v === null || v === undefined || v === "" ? "–" : (isMultipleChoice(sheet, n) && CIRCLED[v] ? CIRCLED[v] : String(v));
+
+/* ---------- 문항 유형 (수능 표준 문항 배치 기준) ---------- */
+const ENG = n => n <= 17 ? "듣기" : n === 18 ? "글의 목적" : n === 19 ? "심경·분위기" : n === 20 ? "필자의 주장" : n === 21 ? "함축 의미" : n === 22 ? "요지" : n === 23 ? "주제" : n === 24 ? "제목" : n === 25 ? "도표" : n === 26 ? "내용 일치" : n <= 28 ? "안내문" : n === 29 ? "어법" : n === 30 ? "어휘" : n <= 34 ? "빈칸 추론" : n === 35 ? "무관한 문장" : n <= 37 ? "글의 순서" : n <= 39 ? "문장 삽입" : n === 40 ? "요약문" : n <= 42 ? "장문(41-42)" : "장문(43-45)";
+function qType(sheet, n) {
+  if (sheet === "국어-공통") return n <= 17 ? "독서" : "문학";
+  if (sheet === "국어-화작") return "화법과 작문";
+  if (sheet === "국어-언매") return n <= 39 ? "언어(문법)" : "매체";
+  if (sheet === "수학-공통") return n <= 15 ? "공통 객관식" : "공통 단답형";
+  if (/^수학-/.test(sheet)) return (n <= 28 ? "선택 객관식" : "선택 단답형");
+  if (sheet === "영어") return ENG(n);
+  if (sheet === "한국사") return "한국사";
+  return SOC.includes(sheet) ? "사회탐구" : "과학탐구";
+}
+const TYPE_AREAS = {
+  "국어": { sheets: ["국어-공통", "국어-화작", "국어-언매"], cols: ["독서", "문학", "화법과 작문", "언어(문법)", "매체"] },
+  "수학": { sheets: ["수학-공통", "수학-확통", "수학-미적", "수학-기하"], cols: ["공통 객관식", "공통 단답형", "선택 객관식", "선택 단답형"], byPts: true },
+  "영어": { sheets: ["영어"], cols: ["듣기", "글의 목적", "심경·분위기", "필자의 주장", "함축 의미", "요지", "주제", "제목", "도표", "내용 일치", "안내문", "어법", "어휘", "빈칸 추론", "무관한 문장", "글의 순서", "문장 삽입", "요약문", "장문(41-42)", "장문(43-45)"] },
+  "한국사·탐구": { sheets: ["한국사", ...SOC, ...SCI], cols: ["한국사", ...SOC, ...SCI], bySheet: true },
+  "배점·이미지": { sheets: ORDER, special: true },
+};
+
+/* ---------- 모델 분류 ---------- */
+const GROUPS = { commercial: "상용 API", open: "공개 가중치(로컬 가능)", decision: "결정형 API" };
+function classify(name, meta) {
+  if (/Decision|Decide|^Jev\b/.test(name)) return { g: "decision", sub: "답만 출력하는 결정 API" };
+  if (meta && meta.quantization) {
+    const small = /Gemma 4|Qwen3\.5 9B|Qwen3\.8 27B/.test(name);
+    return { g: "open", sub: small ? "개인 PC급 (31B 이하)" : "대형·규모 미표기" };
+  }
+  return { g: "commercial", sub: "가중치 비공개" };
+}
+
+/* ---------- 회사 · 등급 ---------- */
+function vendorOf(n) {
+  return /^GPT/.test(n) ? "OpenAI" : /^Claude/.test(n) ? "Anthropic" : /^Gemini|^Gemma/.test(n) ? "Google" : /^Qwen/.test(n) ? "Alibaba" : /^DeepSeek/.test(n) ? "DeepSeek" : /^GLM/.test(n) ? "Zhipu" : /^Kimi/.test(n) ? "Moonshot" : /EXAONE/.test(n) ? "LG AI연구원" : /^Solar/.test(n) ? "Upstage" : /^Mi:dm/.test(n) ? "KT" : /^Raon/.test(n) ? "Krafton" : "OpenRouter";
+}
+const VENDORS = ["OpenAI", "Anthropic", "Google", "Alibaba", "DeepSeek", "Zhipu", "Moonshot", "LG AI연구원", "Upstage", "KT", "Krafton", "OpenRouter"];
+const shortName = n => n.replace(/ \((high|max|xhigh)\)$/, "");
+
+/* ---------- 실행 환경 · 접는 모델 묶음 ---------- */
+// 공개 가중치 모델은 로컬에서 돌릴 수 있음. 31B 이하는 개인 PC급, 나머지는 서버급으로 분류
+const RUNS = { pc: "로컬 · 개인 PC급", server: "로컬 · 서버급" };
+const runOf = m => m.g !== "open" ? "api" : m.sub.startsWith("개인") ? "pc" : "server";
+const groupKey = m => m.run === "api" ? m.vendor : m.run;
+const RUN_FILTER = { local: m => m.run !== "api", pc: m => m.run === "pc", api: m => m.run === "api" };
+
+/* ---------- 상태 ---------- */
+const S = { sheets: {}, models: [], byName: {}, groups: { commercial: true, open: true, decision: true }, sort: { key: "ok", dir: -1 }, gridMode: "sheet", gridSheet: "국어-공통", gridModel: null, typeArea: "국어", wrongModel: null, pdfs: [], drawer: null, fetched: null };
+try { const g = JSON.parse(localStorage.getItem("csat27-groups") || "null"); if (g) Object.assign(S.groups, g); } catch (e) { }
+
+async function load() {
+  const get = p => fetch(p).then(r => { if (!r.ok) throw new Error(p + " " + r.status); return r.json(); });
+  const [results, qmeta, mmeta, tok] = await Promise.all([get("data/results.json"), get("data/questions_metadata.json"), get("data/model_metadata.json"), get("data/token_usage.json").catch(() => ({ models: {} }))]);
+  const metaKey = s => qmeta[s] ? s : Object.keys(qmeta).find(k => k.startsWith(s + "-")) || s;
+  for (const r of results) {
+    const sh = r.sheet_name;
+    if (!S.sheets[sh]) {
+      const qm = qmeta[metaKey(sh)] || {};
+      S.sheets[sh] = { key: sh, subject: r.subject, section: r.section, max: r.total_points, qs: r.results.map(q => ({ n: q.question_number, pts: q.points, ans: q.correct_answer, img: !!(qm[q.question_number] && qm[q.question_number].hasImage), type: qType(sh, q.question_number) })) };
+    }
+    let m = S.byName[r.model_name];
+    if (!m) {
+      const meta = mmeta[r.model_name] || {};
+      m = { name: r.model_name, meta, ...classify(r.model_name, meta), scores: {}, ans: {}, price: r.price, tokens: tok.models?.[r.model_name] };
+      S.byName[m.name] = m; S.models.push(m);
+    }
+    m.scores[sh] = r.score;
+    m.ans[sh] = r.results.map(q => ({ v: q.extracted_answer, st: q.is_correct ? 0 : q.answer_status === "no_answer" ? 2 : q.answer_status === "parse_failed" ? 3 : 1 }));
+  }
+  for (const m of S.models) { totals(m); m.vendor = vendorOf(m.name); m.run = runOf(m); }
+  S.gridModel = [...S.models].sort((a, b) => byRank(a, b))[0].name;
+  S.wrongModel = S.gridModel;
+}
+function totals(m) {
+  const sc = s => m.scores[s] ?? 0;
+  const avg = a => a.reduce((x, s) => x + sc(s), 0) / a.length;
+  m.korHw = sc("국어-공통") + sc("국어-화작"); m.korEm = sc("국어-공통") + sc("국어-언매");
+  m.kor = sc("국어-공통") + avg(["국어-화작", "국어-언매"]);
+  m.mPr = sc("수학-공통") + sc("수학-확통"); m.mCa = sc("수학-공통") + sc("수학-미적"); m.mGe = sc("수학-공통") + sc("수학-기하");
+  m.math = sc("수학-공통") + avg(["수학-확통", "수학-미적", "수학-기하"]);
+  m.eng = sc("영어"); m.kh = sc("한국사");
+  m.soc = avg(SOC); m.sci = avg(SCI); m.inq = avg([...SOC, ...SCI]);
+  const sum = a => a.reduce((x, s) => x + sc(s), 0), smax = a => a.reduce((x, s) => x + (S.sheets[s]?.max ?? 0), 0);
+  m.socT = sum(SOC); m.sciT = sum(SCI); m.tot = sum(ORDER); m.totMax = smax(ORDER);
+  let ok = 0, all = 0, wrong = 0, noans = 0, parse = 0;
+  for (const s of ORDER) for (const a of m.ans[s] || []) { all++; if (a.st === 0) ok++; else if (a.st === 1) wrong++; else if (a.st === 2) noans++; else parse++; }
+  Object.assign(m, { ok, all, wrong, noans, parse });
+}
+S.only = new Set(); try { (JSON.parse(localStorage.getItem("csat27-only") || "[]") || []).forEach(n => S.only.add(n)); } catch (e) { }
+const byRank = (a, b) => b.ok - a.ok || b.tot - a.tot;
+const visible = () => S.models.filter(m => S.groups[m.g] && (!S.only.size || S.only.has(m.name)));
+
+/* ---------- 특정 모델만 보기 (팝업) ---------- */
+function saveOnly() { try { localStorage.setItem("csat27-only", JSON.stringify([...S.only])); } catch (e) { } }
+function renderSel() {
+  const n = S.only.size, btn = $("#selBtn");
+  btn.innerHTML = n ? `모델 선택 <b>${n}개</b>` : "모델 선택 <span class=\"muted\">전체</span>";
+  btn.setAttribute("aria-pressed", n ? "true" : "false");
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest("#selBtn")) return;
+  openPicker({ mode: "multi", title: "보고 싶은 모델만 고르기", note: "고른 모델만 모든 탭에 나옵니다. 아무것도 고르지 않으면 전체를 보여 줍니다. 묶음 이름을 누르면 그 묶음 전체가 선택됩니다.", selected: S.only,
+    onApply: a => { S.only = new Set(a); saveOnly(); renderSel(); if (S.only.size && !S.only.has(S.dashModel)) S.dashModel = [...S.only][0]; route(); } });
+});
+
+/* ---------- 공통 렌더 조각 ---------- */
+function grpTag(m) { return `<span class="grp"><i class="dot g-${m.g}"></i>${esc(GROUPS[m.g].split("(")[0])}</span>`; }
+function heat(v, max, txt, attrs = "") {
+  const p = Math.max(0, Math.min(1, max ? v / max : 0));
+  const mix = Math.round((1 - p) * 70);
+  const bg = p >= 0.999 ? `color-mix(in srgb,var(--ok) 22%,var(--panel))` : `color-mix(in srgb,var(--bad) ${mix}%,var(--panel))`;
+  return `<td class="heat" ${attrs} style="background:${bg}${attrs ? ";cursor:pointer" : ""}">${txt ?? f1(v)}</td>`;
+}
+function renderFilters() {
+  $("#groupFilters").innerHTML = Object.entries(GROUPS).map(([k, v]) => `<button class="chip" data-g="${k}" aria-pressed="${S.groups[k]}"><i class="dot g-${k}"></i>${v} <span class="muted">${S.models.filter(m => m.g === k).length}</span></button>`).join("");
+  $("#groupFilters").onclick = e => { const b = e.target.closest("[data-g]"); if (!b) return; S.groups[b.dataset.g] = !S.groups[b.dataset.g]; try { localStorage.setItem("csat27-groups", JSON.stringify(S.groups)); } catch (e) { } renderFilters(); route(); };
+}
+
+/* ---------- 1. 성적표 ---------- */
+const RANK_COLS = [
+  { k: "name", t: "모델", l: true }, { k: "g", t: "분류", l: true },
+  { k: "korHw", t: "국어 화작", max: 100 }, { k: "korEm", t: "국어 언매", max: 100 },
+  { k: "mPr", t: "수학 확통", max: 100 }, { k: "mCa", t: "수학 미적", max: 100 }, { k: "mGe", t: "수학 기하", max: 100 },
+  { k: "eng", t: "영어", max: 100 }, { k: "kh", t: "한국사", max: 50 },
+  { k: "socT", t: "사탐 9과목 합", max: 450 }, { k: "sciT", t: "과탐 8과목 합", max: 400 },
+  { k: "ok", t: "맞힌 문항" }, { k: "tot", t: "총점" },
+];
+function viewRanking() {
+  const ms = visible().sort((a, b) => { const k = S.sort.key; const x = a[k], y = b[k]; return (typeof x === "string" ? x.localeCompare(y) : x - y) * S.sort.dir || byRank(a, b); });
+  const head = `<tr><th>#</th>${RANK_COLS.map(c => `<th class="sortable ${c.l ? "l" : ""} ${S.sort.key === c.k ? "sorted" : ""}" data-k="${c.k}">${c.t}${c.max && c.k !== "ok" ? `<br><span class="muted mono">/${c.max}</span>` : ""}</th>`).join("")}</tr>`;
+  const rows = ms.map((m, i) => `<tr class="click" data-model="${esc(m.name)}"><td class="mono muted">${i + 1}</td><td class="l name">${esc(m.name)}<small>${esc(m.sub)}${m.meta.quantization ? " · " + esc(m.meta.quantization) : ""}</small></td><td class="l">${grpTag(m)}</td>${RANK_COLS.slice(2).map(c => c.k === "ok" ? heat(m.ok, m.all, `${m.ok}<span class="muted">/${m.all}</span>`) : c.k === "tot" ? heat(m.tot, m.totMax, `${m.tot}<span class="muted">/${m.totMax}</span>`) : heat(m[c.k], c.max)).join("")}</tr>`).join("");
+  $("#app").innerHTML = `<section class="view">
+    <div class="panel">
+      <h2>모델별 과목 성적</h2>
+      <p class="hint">원점수 기준입니다. 국어·수학은 공통+선택과목 조합별 100점 만점, 사탐·과탐은 모든 과목 점수의 합입니다. '맞힌 문항'과 '총점'은 26개 과목 전체를 더한 값이고, 기본 정렬은 맞힌 문항 수입니다. 열 제목을 누르면 정렬하고, 행을 누르면 그 모델의 대시보드로 이동합니다.</p>
+      <div class="scroll"><table class="data" id="rankT"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+      <div class="legend"><span><i class="sw" style="background:color-mix(in srgb,var(--ok) 22%,var(--panel))"></i>만점</span><span><i class="sw" style="background:color-mix(in srgb,var(--bad) 20%,var(--panel))"></i>감점 적음</span><span><i class="sw" style="background:color-mix(in srgb,var(--bad) 60%,var(--panel))"></i>감점 많음</span></div>
+    </div>
+    <div class="panel"><h2>탐구 과목별 원점수</h2><p class="hint">50점 만점. 칸을 누르면 해당 모델·과목의 정오표로 이동합니다.</p>
+      <div class="scroll"><table class="data"><thead><tr><th class="l">모델</th>${[...SOC, ...SCI].map(s => `<th>${esc(LABEL(s))}</th>`).join("")}</tr></thead><tbody>${ms.map(m => `<tr><td class="l name">${esc(m.name)}</td>${[...SOC, ...SCI].map(s => heat(m.scores[s] ?? 0, 50, String(m.scores[s] ?? "–"), `data-jump="${esc(m.name)}|${s}"`)).join("")}</tr>`).join("")}</tbody></table></div>
+    </div>
+    ${notesPanel()}
+  </section>`;
+  $("#rankT thead").onclick = e => { const th = e.target.closest("[data-k]"); if (!th) return; const k = th.dataset.k; S.sort = { key: k, dir: S.sort.key === k ? -S.sort.dir : (k === "name" || k === "g" ? 1 : -1) }; viewRanking(); };
+  $("#app").onclick = e => {
+    const j = e.target.closest("[data-jump]"); if (j) { const [m, s] = j.dataset.jump.split("|"); S.gridMode = "sheet"; S.gridSheet = s; location.hash = "grid"; return; }
+    const tr = e.target.closest("tr[data-model]"); if (tr) { S.dashModel = tr.dataset.model; if (S.cmp === S.dashModel) S.cmp = "avg"; location.hash = "model"; }
+  };
+}
+function notesPanel() {
+  return `<div class="panel"><h2>읽기 전에</h2><ul class="notes">
+    <li>평가 방식(원 대시보드): API를 직접 호출했고, 시스템 프롬프트와 검색·도구는 쓰지 않았습니다. 입력은 "제시된 모든 문제를 해결하라." 한 문장과 텍스트로 옮긴 문항(수식은 LaTeX, 그림은 이미지 첨부)입니다. 이미지를 지원하지 않는 모델은 그림 없이 풀었습니다.</li>
+    <li>채점은 시험 당일 공개된 가답안 기준입니다. 최종 정답은 12월 1일 평가원 발표 후 바뀔 수 있고, 표준점수와 등급은 산출하지 않았습니다.</li>
+    <li>모델당 1회 실행 결과라서 같은 모델이라도 다시 풀면 점수가 달라질 수 있습니다.</li>
+    <li>분류 기준: 원 대시보드 메타데이터에 양자화 정보가 있는 모델은 '공개 가중치', 이름에 Decision/Decide/Jev가 붙은 모델은 '결정형 API', 나머지는 '상용 API'로 묶었습니다. 결정형은 풀이 없이 답만 내는 방식입니다.</li>
+    <li>문항 유형은 수능의 표준 문항 배치(예: 국어 1–17번 독서, 영어 31–34번 빈칸)를 기준으로 붙였습니다. 실제 지문 내용으로 확인한 분류가 아니므로, 연도별 배치가 다르면 어긋날 수 있습니다.</li>
+  </ul></div>`;
+}
+
+/* ---------- 2. 문항 정오표 ---------- */
+const ST_TXT = ["정답", "오답", "무응답", "파싱 실패"];
+function cell(m, sheet, q, i) {
+  const a = m.ans[sheet]?.[i]; if (!a) return `<td></td>`;
+  const txt = a.st === 0 ? "○" : a.st === 1 ? fmtAns(sheet, q.n, a.v) : a.st === 2 ? "–" : "?";
+  return `<td class="c s${a.st}" data-q="${sheet}|${q.n}" title="${esc(m.name)} · ${esc(LABEL(sheet))} ${q.n}번 · ${ST_TXT[a.st]}${a.st ? " (모델 답 " + esc(fmtAns(sheet, q.n, a.v)) + ", 정답 " + esc(fmtAns(sheet, q.n, q.ans)) + ")" : ""}">${txt}</td>`;
+}
+function qHead(sheet) {
+  const qs = S.sheets[sheet].qs; const maxPts = Math.max(...qs.map(q => q.pts));
+  return `<tr><th class="rowh">문항 →</th>${qs.map(q => `<th title="${q.pts}점${q.img ? " · 그림 포함" : ""} · ${esc(q.type)}">${q.n}${q.img ? '<span class="img-mark">▣</span>' : ""}</th>`).join("")}</tr>
+    <tr><th class="rowh">배점</th>${qs.map(q => `<th class="${q.pts === maxPts && maxPts >= 3 ? "pts4" : ""}">${q.pts}</th>`).join("")}</tr>`;
+}
+function accRow(sheet, ms) {
+  const qs = S.sheets[sheet].qs;
+  return `<tr class="foot"><th class="rowh">정답</th>${qs.map(q => `<td>${esc(fmtAns(sheet, q.n, q.ans))}</td>`).join("")}</tr>
+  <tr class="foot"><th class="rowh">맞힌 모델 수<small>${ms.length}개 중</small></th>${qs.map((q, i) => { const ok = ms.filter(m => m.ans[sheet]?.[i]?.st === 0).length; return `<td style="${ok * 2 < ms.length ? "color:var(--bad);font-weight:600" : ""}">${ok}</td>`; }).join("")}</tr>`;
+}
+function viewGrid() {
+  const ms = visible();
+  const sheetOpts = ORDER.map(s => `<option value="${s}" ${s === S.gridSheet ? "selected" : ""}>${esc(LABEL(s))}</option>`).join("");
+  const modelOpts = [...S.models].sort((a, b) => byRank(a, b)).map(m => `<option ${m.name === S.gridModel ? "selected" : ""}>${esc(m.name)}</option>`).join("");
+  let body = "";
+  if (S.gridMode === "sheet") {
+    const sh = S.gridSheet, qs = S.sheets[sh].qs;
+    const sorted = [...ms].sort((a, b) => (b.scores[sh] ?? 0) - (a.scores[sh] ?? 0) || byRank(a, b));
+    body = `<table class="grid"><thead>${qHead(sh)}</thead><tbody>${sorted.map(m => `<tr><th class="rowh"><i class="dot g-${m.g}"></i> ${esc(m.name)}<small>${m.scores[sh]}/${S.sheets[sh].max}</small></th>${qs.map((q, i) => cell(m, sh, q, i)).join("")}</tr>`).join("")}${accRow(sh, sorted)}</tbody></table>`;
+  } else {
+    const m = S.byName[S.gridModel];
+    const maxN = 45;
+    body = `<table class="grid"><thead><tr><th class="rowh">과목 · 원점수</th>${Array.from({ length: maxN }, (_, i) => `<th>${i + 1}</th>`).join("")}</tr></thead><tbody>${ORDER.map(sh => {
+      const qs = S.sheets[sh].qs; const byN = {}; qs.forEach((q, i) => byN[q.n] = [q, i]);
+      return `<tr><th class="rowh">${esc(LABEL(sh))}<small>${m.scores[sh]}/${S.sheets[sh].max}</small></th>${Array.from({ length: maxN }, (_, i) => byN[i + 1] ? cell(m, sh, byN[i + 1][0], byN[i + 1][1]) : `<td style="background:var(--sunk)"></td>`).join("")}</tr>`;
+    }).join("")}</tbody></table>`;
+  }
+  $("#app").innerHTML = `<section class="view"><div class="panel">
+    <h2>문항 정오표</h2>
+    <p class="hint">초록 ○는 정답, 빨간 칸의 숫자는 모델이 고른 오답, 노란 –는 무응답, 보라 ?는 답을 읽어내지 못한 경우입니다. ▣ 표시는 그림이 포함된 문항, 빨간 배점은 그 과목의 최고 배점 문항입니다. 칸을 누르면 오른쪽에 문항 상세와 원문제가 열립니다.</p>
+    <div class="controls">
+      <label class="ctl">보기 <select id="gMode"><option value="sheet" ${S.gridMode === "sheet" ? "selected" : ""}>과목별 (모든 모델)</option><option value="model" ${S.gridMode === "model" ? "selected" : ""}>모델별 (모든 과목)</option></select></label>
+      ${S.gridMode === "sheet" ? `<label class="ctl">과목 <select id="gSheet">${sheetOpts}</select></label>` : `<label class="ctl">모델 <select id="gModel">${modelOpts}</select></label>`}
+    </div>
+    <div class="scroll">${body}</div>
+    <div class="legend"><span><i class="sw" style="background:color-mix(in srgb,var(--ok) 22%,var(--panel))"></i>정답</span><span><i class="sw" style="background:color-mix(in srgb,var(--bad) 80%,var(--panel))"></i>오답</span><span><i class="sw" style="background:color-mix(in srgb,var(--warn) 70%,var(--panel))"></i>무응답</span><span><i class="sw" style="background:color-mix(in srgb,var(--na) 70%,var(--panel))"></i>파싱 실패</span></div>
+  </div></section>`;
+  $("#gMode").onchange = e => { S.gridMode = e.target.value; viewGrid(); };
+  if ($("#gSheet")) $("#gSheet").onchange = e => { S.gridSheet = e.target.value; viewGrid(); };
+  if ($("#gModel")) $("#gModel").onchange = e => { S.gridModel = e.target.value; viewGrid(); };
+}
+
+/* ---------- 3. 오답 유형 ---------- */
+function typeStats(m, area) {
+  const A = TYPE_AREAS[area]; const out = {};
+  const add = (k, a) => { const o = out[k] || (out[k] = { n: 0, ok: 0, lost: 0 }); o.n++; if (a.st === 0) o.ok++; };
+  for (const sh of A.sheets) S.sheets[sh].qs.forEach((q, i) => {
+    const a = m.ans[sh]?.[i]; if (!a) return;
+    if (A.special) { add(q.pts + "점", a); add(q.img ? "그림 포함" : "텍스트만", a); add(isMultipleChoice(sh, q.n) ? "객관식" : "단답형", a); }
+    else if (A.bySheet) add(sh, a);
+    else { add(q.type, a); if (A.byPts) add(q.pts + "점 문항", a); }
+  });
+  return out;
+}
+function viewTypes() {
+  const ms = visible().sort((a, b) => byRank(a, b));
+  const A = TYPE_AREAS[S.typeArea];
+  let cols = A.special ? ["2점", "3점", "4점", "그림 포함", "텍스트만", "객관식", "단답형"] : A.byPts ? [...A.cols, "2점 문항", "3점 문항", "4점 문항"] : A.cols;
+  const counts = {}; for (const sh of A.sheets) S.sheets[sh].qs.forEach(q => { const ks = A.special ? [q.pts + "점", q.img ? "그림 포함" : "텍스트만", isMultipleChoice(sh, q.n) ? "객관식" : "단답형"] : A.bySheet ? [sh] : [q.type, ...(A.byPts ? [q.pts + "점 문항"] : [])]; ks.forEach(k => counts[k] = (counts[k] || 0) + 1); });
+  cols = cols.filter(c => counts[c]);
+  const matrix = ms.map(m => { const st = typeStats(m, S.typeArea); return `<tr><td class="l name"><i class="dot g-${m.g}"></i> ${esc(m.name)}</td>${cols.map(c => { const o = st[c] || { n: 0, ok: 0 }; const wrong = o.n - o.ok; return heat(o.ok, o.n, `${o.ok}<span class="muted">/${o.n}</span>`); }).join("")}</tr>`; }).join("");
+  const sumRow = `<tr class="foot"><td class="l muted">모델당 평균 맞힌 문항</td>${cols.map(c => { let ok = 0; ms.forEach(m => { const o = typeStats(m, S.typeArea)[c]; if (o) ok += o.ok; }); return `<td class="mono">${f1(ms.length ? ok / ms.length : 0)}<span class="muted">/${counts[c]}</span></td>`; }).join("")}</tr>`;
+
+  // 모델별 오답 목록
+  const wm = S.byName[S.wrongModel];
+  const wrongs = []; for (const sh of ORDER) S.sheets[sh].qs.forEach((q, i) => { const a = wm.ans[sh]?.[i]; if (a && a.st !== 0) wrongs.push({ sh, q, a }); });
+  const lostPts = wrongs.reduce((s, w) => s + w.q.pts, 0);
+  const imgW = wrongs.filter(w => w.q.img).length;
+  const byType = {}; wrongs.forEach(w => { const k = (/^(국어|수학)/.test(w.sh) ? w.sh.split("-")[0] + " " : "") + w.q.type; byType[k] = (byType[k] || 0) + 1; });
+  const typeChips = Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="pill">${esc(k)} ${v}</span>`).join("");
+
+  // 많이 틀린 문항
+  const hard = []; for (const sh of ORDER) S.sheets[sh].qs.forEach((q, i) => { const okN = ms.filter(m => m.ans[sh]?.[i]?.st === 0).length; const wa = {}; ms.forEach(m => { const a = m.ans[sh]?.[i]; if (a && a.st === 1) { const k = fmtAns(sh, q.n, a.v); wa[k] = (wa[k] || 0) + 1; } }); const top = Object.entries(wa).sort((a, b) => b[1] - a[1])[0]; hard.push({ sh, q, okN, rate: pct(okN, ms.length), top }); });
+  hard.sort((a, b) => a.rate - b.rate || b.q.pts - a.q.pts);
+
+  $("#app").innerHTML = `<section class="view">
+    <div class="panel"><h2>유형별 맞힌 문항</h2>
+      <p class="hint">칸의 숫자는 '맞힌 문항 / 그 유형의 문항 수'입니다. 국어·수학은 모든 선택과목을 합친 결과입니다. 모델은 전체 맞힌 문항 수 순으로 정렬했습니다.</p>
+      <div class="controls"><label class="ctl">영역 <select id="tArea">${Object.keys(TYPE_AREAS).map(k => `<option ${k === S.typeArea ? "selected" : ""}>${k}</option>`).join("")}</select></label></div>
+      <div class="scroll"><table class="data"><thead><tr><th class="l">모델</th>${cols.map(c => `<th>${esc(A.bySheet ? LABEL(c) : c)}<br><span class="muted mono">${counts[c]}문항</span></th>`).join("")}</tr></thead><tbody>${matrix}${sumRow}</tbody></table></div>
+    </div>
+    <div class="two">
+      <div class="panel"><h2>모델별 오답 목록</h2>
+        <p class="hint">한 모델이 틀린 문항을 모두 모았습니다. 행을 누르면 문항 상세와 원문제가 열립니다.</p>
+        <div class="controls"><label class="ctl">모델 <select id="wModel">${[...S.models].sort((a, b) => byRank(a, b)).map(m => `<option ${m.name === S.wrongModel ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label></div>
+        <div class="stats"><span class="pill bad">오답 ${wm.wrong}</span><span class="pill warn">무응답 ${wm.noans}</span><span class="pill na">파싱 실패 ${wm.parse}</span><span class="pill">잃은 배점 ${lostPts}점</span><span class="pill">그림 문항 ${imgW}/${wrongs.length}</span></div>
+        <div class="stats">${typeChips || '<span class="pill ok">틀린 문항 없음</span>'}</div>
+        <div class="scroll" style="max-height:520px;overflow:auto"><table class="data"><thead><tr><th class="l">과목</th><th>번호</th><th class="l">유형</th><th>배점</th><th>그림</th><th>정답</th><th>모델 답</th><th class="l">상태</th></tr></thead><tbody>${wrongs.map(w => `<tr class="click" data-q="${w.sh}|${w.q.n}"><td class="l">${esc(LABEL(w.sh))}</td><td class="mono">${w.q.n}</td><td class="l">${esc(w.q.type)}</td><td class="mono">${w.q.pts}</td><td>${w.q.img ? "▣" : ""}</td><td class="mono">${esc(fmtAns(w.sh, w.q.n, w.q.ans))}</td><td class="mono">${esc(fmtAns(w.sh, w.q.n, w.a.v))}</td><td class="l"><span class="pill ${["", "bad", "warn", "na"][w.a.st]}">${ST_TXT[w.a.st]}</span></td></tr>`).join("")}</tbody></table></div>
+      </div>
+      <div class="panel"><h2>많이 틀린 문항 25선</h2>
+        <p class="hint">현재 필터에 포함된 모델 ${ms.length}개 중 맞힌 모델이 적은 순서입니다. '최다 오답'은 틀린 모델들이 가장 많이 고른 답입니다.</p>
+        <div class="scroll" style="max-height:600px;overflow:auto"><table class="data"><thead><tr><th class="l">과목</th><th>번호</th><th class="l">유형</th><th>배점</th><th>그림</th><th>정답</th><th>맞힌 모델</th><th>최다 오답</th></tr></thead><tbody>${hard.slice(0, 25).map(h => `<tr class="click" data-q="${h.sh}|${h.q.n}"><td class="l">${esc(LABEL(h.sh))}</td><td class="mono">${h.q.n}</td><td class="l">${esc(h.q.type)}</td><td class="mono">${h.q.pts}</td><td>${h.q.img ? "▣" : ""}</td><td class="mono">${esc(fmtAns(h.sh, h.q.n, h.q.ans))}</td>${heat(h.okN, ms.length, `${h.okN}<span class="muted">/${ms.length}</span>`)}<td class="mono">${h.top ? esc(h.top[0]) + ` <span class="muted">×${h.top[1]}</span>` : "–"}</td></tr>`).join("")}</tbody></table></div>
+      </div>
+    </div>
+  </section>`;
+  $("#tArea").onchange = e => { S.typeArea = e.target.value; viewTypes(); };
+  $("#wModel").onchange = e => { S.wrongModel = e.target.value; viewTypes(); };
+}
+
+/* ---------- 4. 로컬 vs 상용 ---------- */
+function areaAcc(m, sheets, pred = () => true) { let n = 0, ok = 0; for (const sh of sheets) S.sheets[sh].qs.forEach((q, i) => { if (!pred(sh, q)) return; const a = m.ans[sh]?.[i]; if (!a) return; n++; if (a.st === 0) ok++; }); return { n, ok, p: pct(ok, n) }; }
+const AREAS = [["국어", ["국어-공통", "국어-화작", "국어-언매"]], ["수학", ["수학-공통", "수학-확통", "수학-미적", "수학-기하"]], ["영어", ["영어"]], ["한국사", ["한국사"]], ["사탐", SOC], ["과탐", SCI]];
+function viewLocal() {
+  const all = S.models;
+  const sets = [
+    ["상용 API", all.filter(m => m.g === "commercial"), "commercial"],
+    ["공개 가중치 전체", all.filter(m => m.g === "open"), "open"],
+    ["└ 개인 PC급 (31B 이하)", all.filter(m => m.g === "open" && m.sub.startsWith("개인")), "open"],
+    ["└ 대형·규모 미표기", all.filter(m => m.g === "open" && !m.sub.startsWith("개인")), "open"],
+    ["결정형 API", all.filter(m => m.g === "decision"), "decision"],
+  ];
+  const mean = (arr, f) => arr.length ? arr.reduce((s, m) => s + f(m), 0) / arr.length : 0;
+  const summary = sets.map(([label, arr, g]) => {
+    const best = [...arr].sort((a, b) => byRank(a, b))[0];
+    const avgOk = (f) => { if (!arr.length) return "–"; let ok = 0, n = 0; arr.forEach(m => { const o = f(m); ok += o.ok; n = o.n; }); return `${f1(ok / arr.length)}<span class="muted">/${n}</span>`; };
+    const cellA = (f) => { if (!arr.length) return `<td class="mono">–</td>`; let ok = 0, n = 0; arr.forEach(m => { const o = f(m); ok += o.ok; n = o.n; }); return heat(ok / arr.length, n, avgOk(f)); };
+    return `<tr><td class="l name"><i class="dot g-${g}"></i> ${label}</td><td class="mono">${arr.length}</td>${cellA(m => ({ ok: m.ok, n: m.all }))}<td class="l">${best ? esc(best.name) + ` <span class="muted mono">${best.ok}/${best.all}</span>` : "–"}</td>${AREAS.map(([, sh]) => cellA(m => areaAcc(m, sh))).join("")}${cellA(m => areaAcc(m, ORDER, (s, q) => q.img))}${cellA(m => areaAcc(m, ["수학-공통", "수학-확통", "수학-미적", "수학-기하"], (s, q) => q.pts === 4))}</tr>`;
+  }).join("");
+  const opens = all.filter(m => m.g === "open").sort((a, b) => byRank(a, b));
+  const topCom0 = all.filter(m => m.g === "commercial").sort((a, b) => byRank(a, b))[0];
+  const tcell = (m, sh) => { const t = tally(m, sh); return heat(t.ok, t.n, `${t.ok}<span class="muted">/${t.n}</span>`); };
+  const openRows = opens.map(m => `<tr><td class="l name">${esc(m.name)}<small>${esc(m.sub)}</small></td><td class="l mono">${esc(m.meta.quantization || "–")}</td><td class="mono">${esc(m.meta.knowledgeCutoff || "–")}</td><td class="mono">${m.meta.supportsVision === false ? "미지원" : "–"}</td>${heat(m.ok, m.all, `${m.ok}<span class="muted">/${m.all}</span>`)}<td class="mono">${m.tot}<span class="muted">/${m.totMax}</span></td>${AREA5.map(([, sh]) => tcell(m, sh)).join("")}<td class="mono" style="color:var(--bad)">${m.ok - topCom0.ok}문항</td></tr>`).join("");
+  // 공개 모델 최고가 맞히고 상용 최고가 틀린 문항 / 반대
+  const topCom = all.filter(m => m.g === "commercial").sort((a, b) => byRank(a, b))[0];
+  const topOpen = opens[0];
+  const diff = []; for (const sh of ORDER) S.sheets[sh].qs.forEach((q, i) => { const a = topCom.ans[sh]?.[i], b = topOpen.ans[sh]?.[i]; if (!a || !b) return; if ((a.st === 0) !== (b.st === 0)) diff.push({ sh, q, comOk: a.st === 0, a, b }); });
+  $("#app").innerHTML = `<section class="view">
+    <div class="panel"><h2>분류별 요약</h2>
+      <p class="hint">칸의 숫자는 그 분류 모델들의 '평균 맞힌 문항 / 문항 수'입니다. '그림 문항'은 그림이 포함된 문항 전체, '수학 4점'은 수학 공통·선택의 4점 문항입니다. 이 표는 상단 필터와 관계없이 전체 모델로 계산합니다.</p>
+      <div class="scroll"><table class="data"><thead><tr><th class="l">분류</th><th>모델 수</th><th>전체 맞힌 문항</th><th class="l">최고 모델</th>${AREAS.map(([a]) => `<th>${a}</th>`).join("")}<th>그림 문항</th><th>수학 4점</th></tr></thead><tbody>${summary}</tbody></table></div>
+    </div>
+    <div class="panel"><h2>공개 가중치 모델 상세</h2><p class="hint">영역 칸은 '맞힌 문항 / 문항 수'(국어·수학·탐구는 모든 선택과목 합산)입니다. '상용 1위 대비'는 상용 API 1위 ${esc(topCom0.name)}(${topCom0.ok}/${topCom0.all}문항)와의 맞힌 문항 수 차이입니다.</p>
+      <div class="scroll"><table class="data"><thead><tr><th class="l">모델</th><th class="l">양자화</th><th>지식 컷오프</th><th>이미지</th><th>맞힌 문항</th><th>총점</th>${AREA5.map(([a]) => `<th>${a}</th>`).join("")}<th>상용 1위 대비</th></tr></thead><tbody>${openRows}</tbody></table></div></div>
+    <div class="panel"><h2>상용 1위와 공개 1위의 정오가 갈린 문항</h2>
+      <p class="hint">${esc(topCom.name)}(상용 1위)와 ${esc(topOpen.name)}(공개 가중치 1위) 중 한쪽만 맞힌 문항 ${diff.length}개입니다. 행을 누르면 문항 상세가 열립니다.</p>
+      <div class="scroll" style="max-height:480px;overflow:auto"><table class="data"><thead><tr><th class="l">과목</th><th>번호</th><th class="l">유형</th><th>배점</th><th>그림</th><th>정답</th><th>${esc(topCom.name)}</th><th>${esc(topOpen.name)}</th></tr></thead><tbody>${diff.map(d => `<tr class="click" data-q="${d.sh}|${d.q.n}"><td class="l">${esc(LABEL(d.sh))}</td><td class="mono">${d.q.n}</td><td class="l">${esc(d.q.type)}</td><td class="mono">${d.q.pts}</td><td>${d.q.img ? "▣" : ""}</td><td class="mono">${esc(fmtAns(d.sh, d.q.n, d.q.ans))}</td><td class="mono" style="color:${d.comOk ? "var(--ok)" : "var(--bad)"}">${d.comOk ? "○" : esc(fmtAns(d.sh, d.q.n, d.a.v))}</td><td class="mono" style="color:${d.comOk ? "var(--bad)" : "var(--ok)"}">${d.comOk ? esc(fmtAns(d.sh, d.q.n, d.b.v)) : "○"}</td></tr>`).join("")}</tbody></table></div>
+    </div>
+  </section>`;
+}
+
+/* ---------- 모델 고르기 팝업 ---------- */
+const PK = { mode: "single", title: "", note: "", sel: new Set(), max: 0, exclude: null, onApply: null, q: "" };
+function openPicker(o) {
+  Object.assign(PK, { note: "", max: 0, exclude: null, q: "" }, o, { sel: new Set(o.selected || []) });
+  const d = $("#pickDlg");
+  d.querySelector("h3").textContent = PK.title;
+  d.querySelector(".pknote").textContent = PK.note;
+  d.querySelector("#pkQ").value = "";
+  d.querySelector(".pkfoot").hidden = PK.mode !== "multi";
+  renderPicker(); d.showModal(); d.querySelector("#pkQ").focus();
+}
+function pickGroups(list) {
+  const byName = a => a.sort((p, q) => p.name.localeCompare(q.name, "en"));
+  return [...Object.entries(RUNS).map(([k, l]) => [k, l, list.filter(x => x.run === k)]), ...VENDORS.map(v => [v, v, list.filter(x => x.run === "api" && x.vendor === v)])]
+    .filter(g => g[2].length).map(([k, l, a]) => [k, l, byName(a)]);
+}
+function renderPicker() {
+  const d = $("#pickDlg"), q = PK.q.trim().toLowerCase(), multi = PK.mode === "multi";
+  const list = S.models.filter(x => x !== PK.exclude && (!q || x.name.toLowerCase().includes(q) || x.vendor.toLowerCase().includes(q)));
+  const full = PK.max && PK.sel.size >= PK.max;
+  d.querySelector(".pkbody").innerHTML = pickGroups(list).map(([k, label, a]) => `<fieldset class="pg"><legend>${multi && !PK.max ? `<button type="button" class="pgall" data-pk-group="${esc(k)}" title="이 묶음 전체 선택/해제">${esc(label)}</button>` : esc(label)}</legend><div class="pgl">${a.map(x => {
+    const on = PK.sel.has(x.name);
+    return `<button type="button" class="pkm" data-pk="${esc(x.name)}" aria-pressed="${on}" ${multi && !on && full ? "disabled" : ""}>${multi ? '<i class="cb"></i>' : ""}<span>${esc(x.name)}</span></button>`;
+  }).join("")}</div></fieldset>`).join("") || '<p class="muted">검색 결과가 없습니다.</p>';
+  d.querySelector(".pkcount").textContent = PK.max ? `${PK.sel.size} / ${PK.max}개 선택` : PK.sel.size ? `${PK.sel.size}개 선택` : "선택 없음 (전체 보기)";
+}
+document.addEventListener("input", e => { if (e.target.id === "pkQ") { PK.q = e.target.value; renderPicker(); } });
+document.addEventListener("click", e => {
+  const d = $("#pickDlg"); if (!d.open) return;
+  if (e.target === d) { d.close(); return; }
+  const t = e.target.closest("[data-pk],[data-pk-group],[data-pk-clear],[data-pk-ok],[data-pk-cancel]"); if (!t || !d.contains(t)) return;
+  const k = t.dataset;
+  if ("pkCancel" in k) { d.close(); return; }
+  if ("pkOk" in k) { d.close(); PK.onApply([...PK.sel]); return; }
+  if ("pkClear" in k) PK.sel.clear();
+  else if (k.pkGroup) { const a = S.models.filter(x => groupKey(x) === k.pkGroup), all = a.every(x => PK.sel.has(x.name)); a.forEach(x => all ? PK.sel.delete(x.name) : PK.sel.add(x.name)); }
+  else if (k.pk) {
+    if (PK.mode === "single") { d.close(); PK.onApply([k.pk]); return; }
+    PK.sel.has(k.pk) ? PK.sel.delete(k.pk) : (!PK.max || PK.sel.size < PK.max) && PK.sel.add(k.pk);
+  }
+  renderPicker();
+});
+
+/* ---------- 모델 상세 ---------- */
+const AREA5 = [["국어", ["국어-공통", "국어-화작", "국어-언매"]], ["수학", ["수학-공통", "수학-확통", "수학-미적", "수학-기하"]], ["영어", ["영어"]], ["한국사", ["한국사"]], ["탐구", [...SOC, ...SCI]]];
+const MAX_EXTRA = 4;
+S.extra = []; try { S.extra = JSON.parse(localStorage.getItem("csat27-extra") || "[]") || []; } catch (e) { }
+function saveExtra() { try { localStorage.setItem("csat27-extra", JSON.stringify(S.extra)); } catch (e) { } }
+const okCount = (m, sh) => (m.ans[sh] || []).filter(a => a.st === 0).length;
+function tally(m, sheets) {
+  let ok = 0, n = 0, pts = 0, max = 0;
+  for (const sh of sheets) { ok += okCount(m, sh); n += S.sheets[sh].qs.length; pts += m.scores[sh] ?? 0; max += S.sheets[sh].max; }
+  return { ok, n, pts, max };
+}
+const SHORT = s => s.includes("-") ? s.split("-")[1] : LABEL(s);
+function wrongBtns(m, sh) {
+  return S.sheets[sh].qs.map((q, i) => [q, m.ans[sh]?.[i]]).filter(([, a]) => a && a.st)
+    .map(([q, a]) => `<button class="qn st${a.st}" data-q="${sh}|${q.n}" title="${q.n}번 [${q.pts}점] ${ST_TXT[a.st]} · 모델 답 ${esc(fmtAns(sh, q.n, a.v))} / 정답 ${esc(fmtAns(sh, q.n, q.ans))}">${q.n}번<small>${q.pts}점</small></button>`).join("") || '<span class="muted">없음</span>';
+}
+function viewModel() {
+  if (!S.dashModel || !S.byName[S.dashModel]) S.dashModel = S.gridModel;
+  const m = S.byName[S.dashModel];
+  S.extra = S.extra.filter(n => S.byName[n] && n !== m.name).slice(0, MAX_EXTRA);
+  const ms = [m, ...S.extra.map(n => S.byName[n])], multi = ms.length > 1;
+  const nm = x => esc(shortName(x.name));
+  const all = x => tally(x, ORDER);
+
+  const card = ([area, sheets]) => `<button class="acard" data-area="${area}" aria-expanded="${S.dashArea === area}">
+      <span class="an">${area}<small>${S.dashArea === area ? "접기 ▴" : "상세 ▾"}</small></span>
+      ${ms.map((x, k) => { const t = tally(x, sheets), full = t.pts === t.max; return `<span class="al c${k}">${multi ? `<span class="alm"><i class="mdot"></i>${nm(x)}</span>` : ""}<span class="alv">${t.ok}<small> / ${t.n}문항</small></span><span class="alp">${t.pts}<small> / ${t.max}점</small>${full ? `<span class="alfull">만점</span>` : ""}</span><span class="mbar ${full ? "full" : ""}" title="${t.pts}/${t.max}점"><i style="width:${(100 * t.pts / (t.max || 1)).toFixed(1)}%"></i></span></span>`; }).join("")}
+    </button>`;
+
+  let detail = "";
+  const A = AREA5.find(a => a[0] === S.dashArea);
+  if (A) {
+    const sheets = A[1], cur = sheets.includes(S.dashSheet) ? S.dashSheet : sheets[0], qs = S.sheets[cur].qs;
+    const rows = sheets.map(sh => `<tr class="click ${sh === cur ? "me" : ""}" data-dsheet="${sh}"><td class="l">${esc(LABEL(sh))} <span class="muted">${S.sheets[sh].qs.length}문항 · ${S.sheets[sh].max}점</span></td>${ms.map(x => heat(okCount(x, sh), S.sheets[sh].qs.length, `<b>${okCount(x, sh)}</b><span class="muted">/${S.sheets[sh].qs.length}</span>`) + heat(x.scores[sh] ?? 0, S.sheets[sh].max, `<b>${x.scores[sh] ?? 0}</b><span class="muted">/${S.sheets[sh].max}점</span>`)).join("")}</tr>`).join("");
+    detail = `<div class="panel">
+      <h2>${A[0]} 과목별</h2>
+      <p class="hint">${sheets.length > 1 ? "과목을 누르면 아래에 그 과목의 정오표가 나옵니다." : "아래는 이 과목의 정오표입니다."} 맞힌 문항 수와 점수만 적었습니다. 문항마다 배점이 다릅니다.</p>
+      <div class="scroll"><table class="data num"><thead>${multi ? `<tr><th class="l"></th>${ms.map((x, k) => `<th colspan="2" class="mh c${k}"><i class="mdot"></i>${nm(x)}</th>`).join("")}</tr>` : ""}<tr><th class="l">과목</th>${ms.map(() => "<th>맞힌 문항</th><th>점수</th>").join("")}</tr></thead><tbody>${rows}</tbody></table></div>
+      <h3 class="gh">${esc(LABEL(cur))} 정오표</h3>
+      <p class="hint">○ 정답, 빨간 칸 숫자는 모델이 고른 오답, – 무응답, ? 답을 읽지 못함. 칸이나 번호를 누르면 문항 상세가 열립니다.</p>
+      <div class="scroll"><table class="grid"><thead>${qHead(cur)}</thead><tbody>${ms.map((x, k) => `<tr><th class="rowh c${k}"><i class="mdot"></i>${nm(x)}<small>${okCount(x, cur)}/${qs.length} · ${x.scores[cur]}점</small></th>${qs.map((q, i) => cell(x, cur, q, i)).join("")}</tr>`).join("")}<tr class="foot"><th class="rowh">정답</th>${qs.map(q => `<td>${esc(fmtAns(cur, q.n, q.ans))}</td>`).join("")}</tr></tbody></table></div>
+      <div class="wl">${ms.map((x, k) => `<div class="wlr c${k}"><span class="wln"><i class="mdot"></i>${nm(x)} 틀린 문항</span><span class="qnums">${wrongBtns(x, cur)}</span></div>`).join("")}</div>
+    </div>`;
+  }
+
+  $("#app").innerHTML = `<section class="view">
+    <div class="panel selcard">
+      <div class="selrow">
+        <span class="sl">모델</span>
+        <button class="mchip base" data-open-base title="다른 모델로 바꾸기">${esc(m.name)} <span class="muted">▾</span></button>
+        ${S.extra.map((n, k) => `<span class="mchip c${k + 1}">${esc(n)}<button data-rm="${esc(n)}" aria-label="${esc(n)} 빼기" title="빼기">×</button></span>`).join("")}
+        ${S.extra.length < MAX_EXTRA ? `<button class="btn" data-open-extra>+ 다른 모델 추가 <span class="muted">${S.extra.length}/${MAX_EXTRA}</span></button>` : `<span class="muted" style="font-size:12.5px">최대 ${MAX_EXTRA}개까지 추가</span>`}
+      </div>
+      <div class="selsum">${ms.map((x, k) => { const t = all(x); return `<span class="c${k}"><i class="mdot"></i>${multi ? `${nm(x)} ` : "전체 "}<b class="mono">${t.ok}</b><span class="muted">/${t.n}문항</span> · <b class="mono">${t.pts}</b><span class="muted">/${t.max}점</span></span>`; }).join("")}</div>
+      <div class="muted" style="font-size:12px">${esc(m.vendor)} · ${esc(GROUPS[m.g])} · ${esc(m.sub)}${m.meta.quantization ? " · " + esc(m.meta.quantization) : ""}${m.meta.releaseDate ? " · 출시 " + esc(m.meta.releaseDate) : ""}${m.meta.supportsVision === false ? " · 이미지 미지원" : ""}</div>
+    </div>
+    <div class="acards ${multi ? "multi" : ""}">${AREA5.map(card).join("")}</div>
+    ${detail}
+  </section>`;
+  $("#app").onclick = e => {
+    const t = e.target.closest("[data-open-base],[data-open-extra],[data-rm],[data-area],[data-dsheet]");
+    if (!t || e.target.closest("[data-q]")) return;
+    const d = t.dataset, y = window.scrollY, redraw = () => { saveExtra(); viewModel(); window.scrollTo({ top: y }); };
+    if ("openBase" in d) openPicker({ mode: "single", title: "모델 고르기", selected: [m.name], onApply: ([n]) => { S.dashModel = n; S.extra = S.extra.filter(x => x !== n); redraw(); } });
+    else if ("openExtra" in d) openPicker({ mode: "multi", title: `함께 볼 모델 추가 (최대 ${MAX_EXTRA}개)`, note: `${m.name}와 나란히 보여 줍니다.`, max: MAX_EXTRA, exclude: m, selected: S.extra, onApply: a => { S.extra = a; redraw(); } });
+    else if (d.rm) { S.extra = S.extra.filter(x => x !== d.rm); redraw(); }
+    else if (d.area) { S.dashArea = S.dashArea === d.area ? null : d.area; redraw(); }
+    else if (d.dsheet) { S.dashSheet = d.dsheet; redraw(); }
+  };
+}
+
+/* ---------- 과목별 정답수 ---------- */
+function viewSubject() {
+  const A = AREA5.find(a => a[0] === S.subjArea) || AREA5[0], sheets = A[1];
+  const cur = S.subjSheet === "all" && sheets.length > 1 ? "all" : sheets.includes(S.subjSheet) ? S.subjSheet : sheets.length > 1 ? "all" : sheets[0];
+  const val = S.subjVal || "ok", ms = visible();
+  const v = (x, sh) => val === "ok" ? okCount(x, sh) : x.scores[sh] ?? 0;
+  let table;
+  if (cur === "all") {
+    const tot = x => sheets.reduce((s, sh) => s + v(x, sh), 0);
+    const sorted = [...ms].sort((a, b) => tot(b) - tot(a) || a.name.localeCompare(b.name));
+    const unit = sh => val === "ok" ? `${S.sheets[sh].qs.length}문항` : `${S.sheets[sh].max}점`;
+    const totUnit = val === "ok" ? `${sheets.reduce((s, sh) => s + S.sheets[sh].qs.length, 0)}문항` : `${sheets.reduce((s, sh) => s + S.sheets[sh].max, 0)}점`;
+    table = `<table class="data num stick"><thead><tr><th class="l">모델</th>${sheets.map(sh => `<th>${esc(SHORT(sh))}<small>${unit(sh)}</small></th>`).join("")}<th>합계<small>${totUnit}</small></th></tr></thead><tbody>${sorted.map(x => `<tr class="click" data-dash="${esc(x.name)}"><td class="l name">${esc(x.name)}</td>${sheets.map(sh => `<td class="mono">${v(x, sh)}</td>`).join("")}<td class="mono"><b>${tot(x)}</b></td></tr>`).join("")}</tbody></table>`;
+  } else {
+    const sh = cur, n = S.sheets[sh].qs.length, mx = S.sheets[sh].max;
+    const sorted = [...ms].sort((a, b) => okCount(b, sh) - okCount(a, sh) || (b.scores[sh] ?? 0) - (a.scores[sh] ?? 0) || a.name.localeCompare(b.name));
+    table = `<table class="data num"><thead><tr><th class="l">모델</th><th>맞힌 문항<small>${n}문항</small></th><th>점수<small>${mx}점</small></th><th class="l">틀린 문항</th></tr></thead><tbody>${sorted.map(x => `<tr><td class="l name"><a href="#model" data-dash="${esc(x.name)}">${esc(x.name)}</a></td><td class="mono"><b>${okCount(x, sh)}</b></td><td class="mono"><b>${x.scores[sh] ?? 0}</b></td><td class="l"><span class="qnums">${wrongBtns(x, sh)}</span></td></tr>`).join("")}</tbody></table>`;
+  }
+  $("#app").innerHTML = `<section class="view"><div class="panel">
+    <h2>과목별 정답수</h2>
+    <p class="hint">모델마다 과목별로 몇 문항을 맞혔고 몇 점을 받았는지입니다. 문항마다 배점이 달라 맞힌 문항 수와 점수가 같은 순서가 아닐 수 있습니다. 모델 이름을 누르면 모델 상세로 갑니다.</p>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="영역">${AREA5.map(([a]) => `<button data-sarea="${a}" aria-pressed="${a === A[0]}">${a}</button>`).join("")}</div>
+      ${sheets.length > 1 ? `<label class="ctl">과목 <select id="sSheet"><option value="all" ${cur === "all" ? "selected" : ""}>${A[0]} 전체 (과목별 나란히)</option>${sheets.map(sh => `<option value="${sh}" ${sh === cur ? "selected" : ""}>${esc(LABEL(sh))}</option>`).join("")}</select></label>` : ""}
+      ${cur === "all" ? `<div class="seg" role="group" aria-label="표시 값"><button data-sval="ok" aria-pressed="${val === "ok"}">맞힌 문항 수</button><button data-sval="pts" aria-pressed="${val === "pts"}">점수</button></div>` : ""}
+    </div>
+    <div class="scroll" style="max-height:72vh;overflow:auto">${table}</div>
+  </div></section>`;
+  if ($("#sSheet")) $("#sSheet").onchange = e => { S.subjSheet = e.target.value; viewSubject(); };
+  $("#app").onclick = e => {
+    const t = e.target.closest("[data-sarea],[data-sval],[data-dash]"); if (!t || e.target.closest("[data-q]")) return;
+    const d = t.dataset;
+    if (d.dash) { e.preventDefault(); S.dashModel = d.dash; location.hash = "model"; return; }
+    if (d.sarea) { S.subjArea = d.sarea; S.subjSheet = null; } else S.subjVal = d.sval;
+    viewSubject();
+  };
+}
+
+/* ---------- AI 취약 분석 ---------- */
+function viewInsight() {
+  const ms = visible(), vs = VENDORS.filter(v => ms.some(x => x.vendor === v));
+  const byV = Object.fromEntries(vs.map(v => [v, ms.filter(x => x.vendor === v)]));
+  const A = AREA5.find(a => a[0] === S.insArea), sheets = A ? A[1] : ORDER;
+  const rule = S.insRule || "half";
+  // 문항별로 회사마다 맞힌 모델 수를 센다
+  const Q = [];
+  for (const sh of sheets) S.sheets[sh].qs.forEach((q, i) => {
+    const okV = {}; let ok = 0;
+    for (const v of vs) { okV[v] = byV[v].filter(x => x.ans[sh]?.[i]?.st === 0).length; ok += okV[v]; }
+    Q.push({ sh, q, i, okV, ok, wrong: ms.length - ok });
+  });
+  const qb = r => `<button class="qn" data-q="${r.sh}|${r.q.n}" title="${esc(r.q.type)}">${esc(LABEL(r.sh))} ${r.q.n}번<small>${r.q.pts}점</small></button>`;
+  const areaSeg = `<div class="seg" role="group" aria-label="영역"><button data-iarea="" aria-pressed="${!A}">전체</button>${AREA5.map(([a]) => `<button data-iarea="${a}" aria-pressed="${A && A[0] === a}">${a}</button>`).join("")}</div>`;
+  const vHead = vs.map(v => `<th>${esc(v)}<small>${byV[v].length}개 모델</small></th>`).join("");
+
+  // 1. 많이 틀린 문항 (회사별 틀린 모델 수)
+  const common = Q.filter(r => r.wrong > 0).sort((a, b) => b.wrong - a.wrong || b.q.pts - a.q.pts).slice(0, 40);
+  const t1 = `<table class="data num stick"><thead><tr><th class="l">문항</th><th class="l">유형</th><th>틀린 모델<small>${ms.length}개 중</small></th>${vHead}</tr></thead><tbody>${common.map(r => `<tr><td class="l">${qb(r)}</td><td class="l muted">${esc(r.q.type)}</td><td class="mono"><b>${r.wrong}</b></td>${vs.map(v => { const w = byV[v].length - r.okV[v]; return `<td class="mono ${w === 0 ? "z" : w === byV[v].length ? "full" : ""}">${w}</td>`; }).join("")}</tr>`).join("")}</tbody></table>`;
+
+  // 2. 회사마다 엇갈린 문항
+  const got = (r, v) => rule === "any" ? r.okV[v] > 0 : r.okV[v] * 2 >= byV[v].length;
+  const split = Q.map(r => ({ ...r, yes: vs.filter(v => got(r, v)), no: vs.filter(v => !got(r, v)) })).filter(r => r.yes.length && r.no.length);
+  const splitSorted = [...split].sort((a, b) => a.yes.length - b.yes.length || b.q.pts - a.q.pts);
+  const hard = split.filter(r => r.yes.length <= 3), easy = split.filter(r => r.no.length <= 3);
+  const solo = vs.map(v => ({ v, only: split.filter(r => r.yes.length === 1 && r.yes[0] === v), miss: split.filter(r => r.no.length === 1 && r.no[0] === v), hardOk: hard.filter(r => r.yes.includes(v)).length, easyNo: easy.filter(r => r.no.includes(v)).length, all: Q.filter(r => got(r, v)).length }));
+  const t2a = `<table class="data num"><thead><tr><th class="l">회사</th><th>맞힌 문항<small>${Q.length}문항 중</small></th><th>소수만 맞힌 문항 중 맞힘<small>3곳 이하가 맞힌 ${hard.length}문항</small></th><th>대부분 맞힌 문항 중 틀림<small>3곳 이하가 틀린 ${easy.length}문항</small></th><th>이 회사만 맞힘</th><th>이 회사만 틀림</th></tr></thead><tbody>${solo.map(s => `<tr><td class="l">${esc(s.v)} <span class="muted">${byV[s.v].length}개 모델</span></td><td class="mono">${s.all}</td><td class="mono ${s.hardOk ? "" : "z"}"><b>${s.hardOk}</b></td><td class="mono ${s.easyNo ? "" : "z"}"><b>${s.easyNo}</b></td><td class="mono ${s.only.length ? "" : "z"}">${s.only.length}</td><td class="mono ${s.miss.length ? "" : "z"}">${s.miss.length}</td></tr>`).join("")}</tbody></table>`;
+  const t2b = `<table class="data num"><thead><tr><th class="l">문항</th><th>맞힌 회사 수</th><th class="l">맞힌 회사</th><th class="l">못 맞힌 회사</th></tr></thead><tbody>${splitSorted.map(r => `<tr><td class="l">${qb(r)}</td><td class="mono"><b>${r.yes.length}</b><span class="muted">/${vs.length}</span></td><td class="l vlist">${r.yes.map(esc).join(", ")}</td><td class="l vlist muted">${r.no.map(esc).join(", ")}</td></tr>`).join("")}</tbody></table>`;
+
+  // 3. 과목별 취약도 (항상 26과목 전체)
+  const weak = ORDER.map(sh => {
+    const qs = S.sheets[sh].qs, n = qs.length;
+    const okPer = qs.map((q, i) => ms.filter(x => x.ans[sh]?.[i]?.st === 0).length);
+    const sumOk = okPer.reduce((a, b) => a + b, 0);
+    return { sh, n, avg: ms.length ? sumOk / ms.length : 0, rate: ms.length ? sumOk / (ms.length * n) : 0, none: okPer.filter(k => k === 0).length, half: okPer.filter(k => k * 2 < ms.length).length };
+  }).sort((a, b) => a.rate - b.rate);
+  const t3 = `<table class="data num"><thead><tr><th class="l">과목</th><th>모델당 평균 맞힌 문항</th><th>절반 넘는 모델이 틀린 문항</th><th>모든 모델이 틀린 문항</th></tr></thead><tbody>${weak.map(w => `<tr><td class="l">${esc(LABEL(w.sh))}</td><td class="mono"><b>${f1(w.avg)}</b><span class="muted"> / ${w.n}</span></td><td class="mono ${w.half ? "" : "z"}">${w.half}</td><td class="mono ${w.none ? "full" : "z"}">${w.none}</td></tr>`).join("")}</tbody></table>`;
+
+  // 4. 로컬 모델로도 되는 과목
+  const best = (arr, sh) => arr.reduce((b, x) => (x.scores[sh] ?? 0) > (b?.scores[sh] ?? -1) ? x : b, null);
+  const com = ms.filter(x => x.g === "commercial" || x.g === "decision"), loc = ms.filter(x => x.run !== "api"), pc = ms.filter(x => x.run === "pc");
+  const cellB = (x, sh) => x ? `<b>${x.scores[sh]}</b><span class="muted">/${S.sheets[sh].max}</span>` : '<span class="muted">–</span>';
+  const local = ORDER.map(sh => { const c = best(com, sh), l = best(loc, sh), p = best(pc, sh); return { sh, c, l, p, gl: c && l ? c.scores[sh] - l.scores[sh] : null, gp: c && p ? c.scores[sh] - p.scores[sh] : null }; })
+    .sort((a, b) => (a.gp ?? a.gl ?? 999) - (b.gp ?? b.gl ?? 999) || (a.gl ?? 999) - (b.gl ?? 999));
+  const gapCell = g => g == null ? '<td class="mono muted">–</td>' : `<td class="mono ${g <= 0 ? "up" : ""}"><b>${g <= 0 ? (g === 0 ? "같음" : `로컬 +${-g}`) : `−${g}점`}</b></td>`;
+  const t4 = `<table class="data num"><thead><tr><th class="l">과목</th><th>상용 API 최고</th><th>로컬 최고<small>서버급 포함</small></th><th class="l">로컬 최고 모델</th><th>개인 PC급 최고</th><th class="l">개인 PC급 최고 모델</th><th>상용 최고와 차이<small>개인 PC급</small></th><th>상용 최고와 차이<small>로컬 전체</small></th></tr></thead><tbody>${local.map(r => `<tr><td class="l">${esc(LABEL(r.sh))}</td><td class="mono">${cellB(r.c, r.sh)}</td><td class="mono">${cellB(r.l, r.sh)}</td><td class="l muted">${r.l ? esc(shortName(r.l.name)) : "–"}</td><td class="mono">${cellB(r.p, r.sh)}</td><td class="l muted">${r.p ? esc(shortName(r.p.name)) : "–"}</td>${gapCell(r.gp)}${gapCell(r.gl)}</tr>`).join("")}</tbody></table>`;
+
+  const box = (h, hint, body, ctl = "") => `<div class="panel"><h2>${h}</h2><p class="hint">${hint}</p>${ctl ? `<div class="controls">${ctl}</div>` : ""}<div class="scroll" style="max-height:480px;overflow:auto">${body}</div></div>`;
+  $("#app").innerHTML = `<section class="view">
+    <div class="panel"><div class="controls" style="margin:0"><span class="muted" style="font-size:12.5px">①②번 표의 영역</span>${areaSeg}<span class="muted" style="font-size:12.5px">지금 보이는 모델 ${ms.length}개 기준 (상단 필터·모델 선택 반영)</span></div></div>
+    ${box("① 많은 모델이 공통으로 틀린 문항", `틀린 모델 수가 많은 순서로 40문항입니다. 회사 칸의 숫자는 그 회사 모델 중 틀린 개수이고, <b class="down">빨간 굵은 숫자</b>는 그 회사 모델이 모두 틀렸다는 뜻입니다. 문항을 누르면 상세가 열립니다.`, common.length ? t1 : '<p class="muted">틀린 문항이 없습니다.</p>')}
+    ${box("② 회사마다 결과가 엇갈린 문항", `어떤 회사는 맞히고 어떤 회사는 못 맞힌 ${split.length}문항입니다. 맞힌 회사가 적은 문항부터 나옵니다. 회사가 한 문항을 '맞혔다'고 보는 기준은 아래에서 고를 수 있습니다.`, t2a + `<h3 class="gh">문항 목록</h3>` + (split.length ? t2b : '<p class="muted">엇갈린 문항이 없습니다.</p>'), `<span class="muted" style="font-size:12.5px">회사가 맞혔다고 보는 기준</span><div class="seg" role="group"><button data-irule="any" aria-pressed="${rule === "any"}">모델 하나라도 맞힘</button><button data-irule="half" aria-pressed="${rule === "half"}">모델 절반 이상 맞힘</button></div>`)}
+    ${box("③ AI가 가장 약한 과목", "26개 과목을 모든 모델·문항을 합쳐 맞힌 비율이 낮은 순서로 놓았습니다. 칸에는 모델당 평균 맞힌 문항 수만 적었습니다.", t3)}
+    ${box("④ 로컬 모델로도 잘 나오는 과목", "과목마다 상용 API 최고 점수와 로컬(공개 가중치) 모델 최고 점수를 비교했습니다. 개인 PC급(31B 이하)과 상용 최고의 차이가 작은 과목부터 나옵니다. 차이가 작을수록 저비용 로컬 모델로 대체하기 쉬운 과목입니다.", t4)}
+  </section>`;
+  $("#app").onclick = e => {
+    const t = e.target.closest("[data-iarea],[data-irule]"); if (!t) return;
+    if ("iarea" in t.dataset) S.insArea = t.dataset.iarea || null; else S.insRule = t.dataset.irule;
+    const y = window.scrollY; viewInsight(); window.scrollTo({ top: y });
+  };
+}
+
+/* ---------- 5. 원문제 (로컬 PDF) ---------- */
+const KICE = "https://www.suneung.re.kr/boardCnts/list.do?boardID=1500234&m=0403&s=suneung";
+const SLOTS = ["국어", "수학", "영어", "한국사", "사회탐구(통합)", "과학탐구(통합)", ...SOC, ...SCI];
+function guessSlot(fname) {
+  const f = fname.replace(/\s/g, "");
+  for (const s of [...SOC, ...SCI]) { const roman = s.replace(/1$/, "Ⅰ").replace(/2$/, "Ⅱ"), latin = s.replace(/1$/, "I").replace(/2$/, "II"); if (f.includes(s) || f.includes(roman) || f.includes(latin)) return s; }
+  if (/국어/.test(f)) return "국어"; if (/수학/.test(f)) return "수학"; if (/영어/.test(f)) return "영어"; if (/한국사/.test(f)) return "한국사";
+  if (/사회|사탐/.test(f)) return "사회탐구(통합)"; if (/과학|과탐/.test(f)) return "과학탐구(통합)";
+  return "국어";
+}
+let pdfjsReady = null;
+function loadPdfjs() {
+  if (pdfjsReady) return pdfjsReady;
+  const add = src => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("PDF 뷰어를 불러오지 못했습니다.")); document.head.appendChild(s); });
+  const base = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  pdfjsReady = add(base + "pdf.min.js").then(() => add(base + "pdf.worker.min.js")).then(() => window.pdfjsLib);
+  return pdfjsReady;
+}
+// IndexedDB: 내 브라우저에만 PDF 보관 (편의 기능)
+const idb = {
+  open() { return new Promise((res, rej) => { try { const r = indexedDB.open("csat27-pdf", 1); r.onupgradeneeded = () => r.result.createObjectStore("f", { keyPath: "id" }); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); } catch (e) { rej(e); } }); },
+  async all() { try { const db = await this.open(); return await new Promise(res => { const q = db.transaction("f").objectStore("f").getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); }); } catch (e) { return []; } },
+  async put(v) { try { const db = await this.open(); db.transaction("f", "readwrite").objectStore("f").put(v); } catch (e) { } },
+  async del(id) { try { const db = await this.open(); db.transaction("f", "readwrite").objectStore("f").delete(id); } catch (e) { } },
+};
+async function openPdf(rec) {
+  const lib = await loadPdfjs();
+  const doc = await lib.getDocument({ data: rec.buf.slice(0) }).promise;
+  const index = {};
+  for (let p = 1; p <= doc.numPages; p++) {
+    const tc = await (await doc.getPage(p)).getTextContent();
+    for (const it of tc.items) { const m = /^\s*(\d{1,2})\s*\.(?!\d)/.exec(it.str || ""); if (m) { const n = +m[1]; (index[n] || (index[n] = [])); if (!index[n].includes(p)) index[n].push(p); } }
+  }
+  return { ...rec, doc, index, pages: doc.numPages };
+}
+async function addFiles(files) {
+  for (const f of files) {
+    const rec = { id: f.name + "|" + f.size, name: f.name, slot: guessSlot(f.name), buf: await f.arrayBuffer() };
+    try { const o = await openPdf(rec); S.pdfs = S.pdfs.filter(x => x.id !== o.id).concat(o); idb.put({ id: rec.id, name: rec.name, slot: rec.slot, buf: rec.buf }); }
+    catch (e) { alertBox(`${f.name}: PDF를 열지 못했습니다. (${e.message})`); }
+  }
+  if (location.hash === "#source") viewSource();
+  if (S.drawer) renderDrawer();
+}
+function alertBox(msg) { const n = $("#srcMsg"); if (n) { n.textContent = msg; n.hidden = false; } }
+async function restorePdfs() {
+  const recs = await idb.all(); if (!recs.length) return;
+  for (const r of recs) { try { S.pdfs.push(await openPdf(r)); } catch (e) { } }
+  if (location.hash === "#source") viewSource();
+}
+function viewSource() {
+  $("#app").innerHTML = `<section class="view"><div class="panel">
+    <h2>원문제 연결</h2>
+    <p class="hint">평가원 문제지에는 "허락 없이 복제·배포·전자출판 금지"라는 저작권 고지가 있어서, 이 페이지에는 문제를 싣지 않았습니다. 대신 평가원에서 받은 PDF를 여기서 열면, 문항 상세 창에서 해당 문항이 있는 페이지를 바로 보여 줍니다. 파일은 이 브라우저 안에서만 열리고 어디에도 업로드되지 않습니다.</p>
+    <ol class="notes" style="padding-left:20px">
+      <li><a href="${KICE}" target="_blank" rel="noopener">평가원 기출문제 게시판</a>에서 학년도 2027을 골라 영역별 '문제 및 정답' PDF를 받습니다.</li>
+      <li>아래에서 PDF를 엽니다(여러 개를 한 번에 열 수 있습니다). 파일 이름으로 과목을 추정하니, 틀리면 옆의 선택 상자에서 고쳐 주세요.</li>
+      <li>정오표나 오답 목록에서 문항을 누르면 오른쪽 창에 원문제 페이지가 나옵니다. 페이지를 잘못 찾았으면 후보 페이지 버튼이나 이전/다음으로 옮기면 됩니다.</li>
+    </ol>
+    <div class="controls" style="margin-top:12px"><input type="file" id="pdfIn" accept="application/pdf,.pdf" multiple aria-label="문제지 PDF 열기"></div>
+    <p class="notice" id="srcMsg" hidden></p>
+    <div class="files">${S.pdfs.length ? S.pdfs.map(p => `<div class="file"><span class="fn">${esc(p.name)}</span><span class="muted">${p.pages}쪽 · 번호 ${Object.keys(p.index).length}개 인식</span><label class="ctl">과목 <select data-slot="${esc(p.id)}">${SLOTS.map(s => `<option ${s === p.slot ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label><button class="btn" data-del="${esc(p.id)}">닫기</button></div>`).join("") : '<p class="muted">아직 연 PDF가 없습니다.</p>'}</div>
+  </div></section>`;
+  $("#pdfIn").onchange = e => { const fs = [...e.target.files]; if (fs.length) { alertBox("PDF를 여는 중…"); addFiles(fs).then(() => { const n = $("#srcMsg"); if (n && n.textContent === "PDF를 여는 중…") n.hidden = true; }); } };
+  $("#app").onchange = e => { const s = e.target.closest("[data-slot]"); if (!s) return; const p = S.pdfs.find(x => x.id === s.dataset.slot); if (p) { p.slot = s.value; idb.put({ id: p.id, name: p.name, slot: p.slot, buf: p.buf }); } };
+  $("#app").onclick = e => { const d = e.target.closest("[data-del]"); if (!d) return; S.pdfs = S.pdfs.filter(x => x.id !== d.dataset.del); idb.del(d.dataset.del); viewSource(); };
+}
+function findPdfFor(sheet, n) {
+  const subj = sheet.split("-")[0];
+  let pdf = null, occ = 0;
+  if (SOC.includes(sheet) || SCI.includes(sheet)) {
+    pdf = S.pdfs.find(p => p.slot === sheet);
+    if (!pdf) { const list = SOC.includes(sheet) ? SOC : SCI; pdf = S.pdfs.find(p => p.slot === (SOC.includes(sheet) ? "사회탐구(통합)" : "과학탐구(통합)")); occ = list.indexOf(sheet); }
+  } else {
+    pdf = S.pdfs.find(p => p.slot === subj);
+    // 한 파일에 선택과목이 이어 붙어 있으면 같은 번호가 여러 번 나온다: 화작→언매, 확통→미적→기하 순
+    if (subj === "국어") occ = sheet === "국어-언매" && n >= 35 ? 1 : 0;
+    if (subj === "수학") occ = n >= 23 ? Math.max(0, ["수학-확통", "수학-미적", "수학-기하"].indexOf(sheet)) : 0;
+  }
+  if (!pdf) return null;
+  const cands = pdf.index[n] || [];
+  return { pdf, cands, page: cands[Math.min(occ, cands.length - 1)] || 1 };
+}
+
+/* ---------- 문항 상세 서랍 ---------- */
+function openDrawer(sheet, n) { S.drawer = { sheet, n, page: null }; renderDrawer(); }
+function renderDrawer() {
+  const d = S.drawer, el = $("#drawer"); if (!d) { el.hidden = true; return; }
+  const sh = S.sheets[d.sheet], i = sh.qs.findIndex(q => q.n === d.n), q = sh.qs[i];
+  const ms = visible();
+  const groups = {}; ms.forEach(m => { const a = m.ans[d.sheet]?.[i]; if (!a) return; const k = a.st === 0 ? "정답" : a.st === 1 ? fmtAns(d.sheet, q.n, a.v) : ST_TXT[a.st]; (groups[k] || (groups[k] = { st: a.st, ms: [] })).ms.push(m); });
+  const okN = groups["정답"]?.ms.length || 0;
+  const rows = Object.entries(groups).sort((a, b) => a[1].st - b[1].st || b[1].ms.length - a[1].ms.length).map(([k, g]) => `<div class="ansrow"><span class="tag ${g.st === 0 ? "pill ok" : g.st === 1 ? "pill bad" : g.st === 2 ? "pill warn" : "pill na"}">${esc(k)}</span><div class="names">${g.ms.sort((a, b) => byRank(a, b)).map(m => `<span title="${esc(GROUPS[m.g])}"><i class="dot g-${m.g}"></i> ${esc(m.name)}</span>`).join("")}</div></div>`).join("");
+  const hit = findPdfFor(d.sheet, d.n);
+  if (hit && d.page == null) d.page = hit.page;
+  el.hidden = false;
+  el.innerHTML = `<div class="dhead"><div><div class="muted" style="font-size:12px">${esc(LABEL(d.sheet))} · ${esc(q.type)}</div><h3>${q.n}번 <span class="muted mono">[${q.pts}점]</span>${q.img ? ' <span class="pill">그림 포함</span>' : ""}</h3></div><button class="btn x" id="dClose" aria-label="닫기">닫기</button></div>
+  <div class="dbody">
+    <div class="kv"><div><b>정답(가답안)</b><span>${esc(fmtAns(d.sheet, q.n, q.ans))}</span></div><div><b>맞힌 모델</b><span>${okN}/${ms.length}</span></div><div><b>형식</b><span style="font-family:var(--f-body);font-size:13px">${isMultipleChoice(d.sheet, q.n) ? "5지 선다" : "단답형"}</span></div></div>
+    <div><div class="muted" style="font-size:12px;margin-bottom:6px">모델별 답안 (현재 필터 기준)</div><div class="ansgrp">${rows}</div></div>
+    <div><div class="muted" style="font-size:12px;margin-bottom:6px">원문제</div>
+      ${hit ? `<div class="pdfbox"><div class="pagebar"><span class="muted">${esc(hit.pdf.name)}</span><button class="btn" id="pPrev">이전</button><span class="mono">${d.page}/${hit.pdf.pages}쪽</span><button class="btn" id="pNext">다음</button>${hit.cands.length ? `<span class="muted">후보</span>${hit.cands.map(p => `<button class="btn" data-page="${p}" aria-pressed="${p === d.page}">${p}쪽</button>`).join("")}` : '<span class="muted">번호를 찾지 못해 1쪽부터 보여 줍니다</span>'}</div><canvas id="pCanvas"></canvas></div>`
+      : `<div class="notice">이 과목의 문제지 PDF가 아직 열려 있지 않습니다. <a href="#source">원문제 탭</a>에서 평가원 PDF를 열면 여기에 해당 페이지가 나옵니다. <a href="${KICE}" target="_blank" rel="noopener">평가원 기출문제 게시판 열기</a></div>`}
+    </div>
+  </div>`;
+  $("#dClose").onclick = () => { S.drawer = null; renderDrawer(); };
+  if (hit) {
+    const go = p => { d.page = Math.max(1, Math.min(hit.pdf.pages, p)); renderDrawer(); };
+    $("#pPrev").onclick = () => go(d.page - 1); $("#pNext").onclick = () => go(d.page + 1);
+    el.querySelectorAll("[data-page]").forEach(b => b.onclick = () => go(+b.dataset.page));
+    hit.pdf.doc.getPage(d.page).then(pg => { const c = $("#pCanvas"); if (!c) return; const w = c.parentElement.clientWidth - 16; const vp0 = pg.getViewport({ scale: 1 }); const scale = (w / vp0.width) * (window.devicePixelRatio || 1); const vp = pg.getViewport({ scale }); c.width = vp.width; c.height = vp.height; pg.render({ canvasContext: c.getContext("2d"), viewport: vp }); });
+  }
+}
+document.addEventListener("click", e => { const c = e.target.closest("[data-q]"); if (!c || c.closest("#drawer")) return; const [sh, n] = c.dataset.q.split("|"); openDrawer(sh, +n); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && S.drawer) { S.drawer = null; renderDrawer(); } });
+
+/* ---------- 라우팅 ---------- */
+const VIEWS = { ranking: viewRanking, model: viewModel, subject: viewSubject, insight: viewInsight, grid: viewGrid, types: viewTypes, local: viewLocal, source: viewSource };
+function route() {
+  const k = (location.hash || "#ranking").slice(1); const v = VIEWS[k] ? k : "ranking";
+  document.querySelectorAll("nav.tabs a").forEach(a => a.setAttribute("aria-current", a.getAttribute("href") === "#" + v ? "page" : "false"));
+  $("#app").onclick = null; $("#app").onchange = null;
+  VIEWS[v]();
+  if (S.drawer) renderDrawer();
+}
+window.addEventListener("hashchange", () => { S.drawer = null; renderDrawer(); route(); });
+load().then(() => {
+  const nq = ORDER.reduce((s, k) => s + S.sheets[k].qs.length, 0);
+  $("#metaRow").innerHTML = `<span>모델 <b>${S.models.length}</b>개</span><span>과목 <b>${ORDER.length}</b>개 시트 · <b>${nq}</b>문항</span><span>채점 기준 <b>가답안</b> (최종 정답 12/1 발표)</span><span>데이터 수집 <b>2026-11-20</b></span>`;
+  for (const n of [...S.only]) if (!S.byName[n]) S.only.delete(n);
+  if (S.only.size) S.dashModel = [...S.only][0];
+  renderFilters(); renderSel(); route(); restorePdfs();
+}).catch(e => { $("#app").innerHTML = `<div class="panel"><h2>데이터를 불러오지 못했습니다</h2><p class="hint">${esc(e.message)}. 페이지를 새로 고쳐 보세요.</p></div>`; });
+</script>
+
+</html>
