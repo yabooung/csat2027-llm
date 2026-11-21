@@ -139,6 +139,32 @@ details.psg summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
 .qtext{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-size:15px;line-height:1.75;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
 .qtext+.qtext{margin-top:8px}
 .srcnote{font-size:12.5px;color:var(--muted);margin:0 0 8px}
+.dhead .qnav{display:flex;gap:6px;margin-left:auto;align-items:center}
+.dhead .qnav .x{margin-left:0}
+.reveal{display:grid;gap:14px}
+.myans{border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:grid;gap:8px;background:var(--sunk)}
+.myhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-size:13px}
+.opts{display:flex;flex-wrap:wrap;gap:6px}
+.opt{display:inline-flex;align-items:center;gap:6px;min-width:52px;justify-content:center;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:600 16px var(--f-body);cursor:pointer}
+.opt small{font:500 11.5px var(--f-mono);color:var(--muted)}
+.opt.na{font-size:12.5px;font-weight:500}
+.opt[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:1px}
+.opt.ok{border-color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,var(--panel))}
+.opt.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 12%,var(--panel))}
+.verdict{margin:0;font-weight:600;font-size:14px}
+.verdict.ok{color:var(--ok)}
+.verdict.bad{color:var(--bad)}
+.mystat{margin:0;font-size:12.5px;color:var(--muted)}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-size:12.5px;text-decoration:underline;cursor:pointer}
+.myform{display:flex;gap:6px;align-items:center}
+.myform input{font:15px var(--f-mono);padding:6px 10px;border:1px solid var(--line);border-radius:6px;width:9em;background:var(--panel);color:var(--ink)}
+.optpop{position:fixed;z-index:40;max-width:min(440px,92vw);max-height:50vh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px 12px;font-size:12.5px}
+.optpop .pophead{display:flex;gap:8px;align-items:baseline;font-size:14px}
+.optpop .names{margin-top:6px}
+.both{display:grid;gap:10px;align-items:start}
+.both+.both,details.psg .both{margin-top:8px}
+aside.drawer.wide .both{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+aside.drawer.wide .both>.pdfbox{position:sticky;top:0}
 .notice{border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--panel));padding:10px 12px;border-radius:4px;font-size:13px}
 .files{display:grid;gap:8px;margin-top:12px}
 .file{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--sunk);padding:8px 10px;border-radius:6px;font-size:13px}
@@ -898,6 +924,7 @@ function viewSource() {
     <p class="notice" id="srcMsg" hidden></p>
     ${S.localPdfs ? `<p class="muted">pdf/ 폴더에서 ${S.localPdfs}개를 자동으로 연결했습니다.${S.qx ? ` 문항 ${Object.values(S.qx.sheets).reduce((s, v) => s + Object.keys(v.questions).length, 0)}개의 영역·텍스트(questions.json)도 불러와서, 문항 상세에서 '문항'(문항 부분만 크게)·'텍스트' 보기를 쓸 수 있습니다.` : " pdf/questions.json이 없어 쪽 전체 보기만 됩니다. 저장소에서 <span class=\"mono\">python -I tools/parse_kice.py pdf</span>를 실행하면 문항 보기와 텍스트 보기가 켜집니다."}</p>` : ""}
     <div class="files">${S.pdfs.length ? S.pdfs.map(p => `<div class="file"><span class="fn">${esc(p.name)}</span>${p.local ? '<span class="pill">pdf 폴더</span>' : ""}<span class="muted">${p.pages}쪽 · 번호 ${Object.keys(p.index).length}개 인식</span><label class="ctl">과목 <select data-slot="${esc(p.id)}">${SLOTS.map(s => `<option ${s === p.slot ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label><button class="btn" data-del="${esc(p.id)}">닫기</button></div>`).join("") : '<p class="muted">아직 연 PDF가 없습니다.</p>'}</div>
+    ${myScoreTable()}
   </div></section>`;
   $("#pdfIn").onchange = e => { const fs = [...e.target.files]; if (fs.length) { alertBox("PDF를 여는 중…"); addFiles(fs).then(() => { const n = $("#srcMsg"); if (n && n.textContent === "PDF를 여는 중…") n.hidden = true; }); } };
   $("#app").onchange = e => { const s = e.target.closest("[data-slot]"); if (!s) return; const p = S.pdfs.find(x => x.id === s.dataset.slot); if (p) { p.slot = s.value; if (!p.local) idb.put({ id: p.id, name: p.name, slot: p.slot, buf: p.buf }); } };
@@ -920,6 +947,12 @@ function findPdfFor(sheet, n) {
   return { pdf, cands, page: cands[Math.min(occ, cands.length - 1)] || 1 };
 }
 
+// 보기 방식·넓게 보기는 이 브라우저에만 기억한다(편의 기능, 실패해도 기본값으로 동작)
+function loadPref(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function savePref(k, v) { try { localStorage.setItem(k, v); } catch (e) { } }
+S.srcMode = loadPref("csat27-srcmode") || undefined;
+S.wide = loadPref("csat27-wide") === "1";
+
 // 문제지의 한 영역 [쪽, x0, y0, x1, y1](PDF 좌표, 위가 0)을 상자 폭에 맞춰 선명하게 그린다
 async function renderClips(box, doc, clips) {
   if (!box || box.dataset.done) return;
@@ -938,53 +971,55 @@ async function renderClips(box, doc, clips) {
 /* ---------- 문항 상세 서랍 ---------- */
 function openDrawer(sheet, n) { S.drawer = { sheet, n, page: null }; renderDrawer(); }
 function renderDrawer() {
+  hidePop();
   const d = S.drawer, el = $("#drawer"); if (!d) { el.hidden = true; return; }
   const sh = S.sheets[d.sheet], i = sh.qs.findIndex(q => q.n === d.n), q = sh.qs[i];
-  const ms = visible();
-  const groups = {}; ms.forEach(m => { const a = m.ans[d.sheet]?.[i]; if (!a) return; const k = a.st === 0 ? "정답" : a.st === 1 ? fmtAns(d.sheet, q.n, a.v) : ST_TXT[a.st]; (groups[k] || (groups[k] = { st: a.st, ms: [] })).ms.push(m); });
-  const okN = groups["정답"]?.ms.length || 0;
-  const rows = Object.entries(groups).sort((a, b) => a[1].st - b[1].st || b[1].ms.length - a[1].ms.length).map(([k, g]) => `<div class="ansrow"><span class="tag ${g.st === 0 ? "pill ok" : g.st === 1 ? "pill bad" : g.st === 2 ? "pill warn" : "pill na"}">${esc(k)}</span><div class="names">${g.ms.sort((a, b) => byRank(a, b)).map(m => `<span title="${esc(GROUPS[m.g])}"><i class="dot g-${m.g}"></i> ${esc(m.name)}</span>`).join("")}</div></div>`).join("");
   const hit = findPdfFor(d.sheet, d.n);
   if (hit && d.page == null) d.page = hit.page;
   // 원문제 보기: 문항(영역만 크게) · 쪽 전체 · 텍스트. 문항·텍스트는 로컬 pdf/questions.json이 있을 때만
   const qsh = S.qx?.sheets?.[d.sheet], qx = qsh?.questions?.[String(d.n)];
   const clipOk = !!(hit && qx && qx.clips.length && hit.pdf.name === qsh.file);
   const psg = qx?.passage ? qsh.passages[qx.passage] : null;
-  const modes = [...(clipOk ? [["clip", "문항"]] : []), ...(hit ? [["page", "쪽 전체"]] : []), ...(qx ? [["text", "텍스트"]] : [])];
+  const modes = [...(clipOk ? [["clip", "문항"]] : []), ...(clipOk ? [["both", "문항+텍스트"]] : []), ...(hit ? [["page", "쪽 전체"]] : []), ...(qx ? [["text", "텍스트"]] : [])];
   const mode = modes.some(m => m[0] === S.srcMode) ? S.srcMode : (modes[0]?.[0] || null);
   const psgLabel = psg ? `공통 지문 [${psg.range[0]}～${psg.range[1]}]` : "";
   const srcBar = modes.length ? `<div class="srcbar" role="group" aria-label="원문제 보기 방식">${modes.map(([k, l]) => `<button class="btn" data-mode="${k}" aria-pressed="${k === mode}">${l}</button>`).join("")}<button class="btn" id="dWide" aria-pressed="${!!S.wide}">넓게 보기</button></div>` : "";
   const pageBox = hit ? `<div class="pdfbox"><div class="pagebar"><span class="muted">${esc(hit.pdf.name)}</span><button class="btn" id="pPrev">이전</button><span class="mono">${d.page}/${hit.pdf.pages}쪽</span><button class="btn" id="pNext">다음</button>${hit.cands.length ? `<span class="muted">후보</span>${hit.cands.map(p => `<button class="btn" data-page="${p}" aria-pressed="${p === d.page}">${p}쪽</button>`).join("")}` : '<span class="muted">번호를 찾지 못해 1쪽부터 보여 줍니다</span>'}</div><canvas id="pCanvas"></canvas></div>` : "";
+  const notes = [];
+  if (qx?.eq) notes.push("수식은 글자 위치를 보고 옮겼습니다. 분수는 (분자)/(분모), 지수는 ^, 아래첨자는 _로 적었고 선분 위 줄 같은 표시는 빠집니다. 정확한 식은 원문에서 확인하세요.");
+  if (qx && q.img) notes.push("그림이 있는 문항입니다. 그림과 표는 원문에서 확인하세요.");
+  if (qx?.unknown) notes.push(`글자로 옮기지 못한 ${qx.unknown}자(옛한글·특수 기호)는 □로 표시했습니다.`);
+  const noteHtml = notes.map(t => `<p class="srcnote">${esc(t)}</p>`).join("");
+  const psgOpen = S.psgOpen ? " open" : "";
   let srcBody;
   if (mode === "clip") {
-    srcBody = `<div class="pdfbox">${psg ? `<details class="psg" id="psgBox"${S.psgOpen ? " open" : ""}><summary>${psgLabel} 보기</summary><div class="clips" id="psgClips"></div></details>` : ""}<div class="clips" id="qClips"></div></div>`;
+    srcBody = `<div class="pdfbox">${psg ? `<details class="psg" id="psgBox"${psgOpen}><summary>${psgLabel} 보기</summary><div class="clips" id="psgClips"></div></details>` : ""}<div class="clips" id="qClips"></div></div>`;
+  } else if (mode === "both") {
+    // 기본 폭에서는 원문 아래 텍스트, 넓게 보기에서는 왼쪽 원문·오른쪽 텍스트
+    srcBody = `${psg ? `<details class="psg" id="psgBox"${psgOpen}><summary>${psgLabel} 보기</summary><div class="both"><div class="pdfbox"><div class="clips" id="psgClips"></div></div><div class="qtext">${esc(psg.text)}</div></div></details>` : ""}<div class="both"><div class="pdfbox"><div class="clips" id="qClips"></div></div><div>${noteHtml}<div class="qtext">${esc(qx.text)}</div></div></div>`;
   } else if (mode === "page") {
     srcBody = pageBox;
   } else if (mode === "text") {
-    const notes = [];
-    if (qx.eq) notes.push("수식은 글자 위치를 보고 옮겼습니다. 분수는 (분자)/(분모), 지수는 ^, 아래첨자는 _로 적었고 선분 위 줄 같은 표시는 빠집니다. 정확한 식은 '문항' 보기에서 확인하세요.");
-    if (q.img) notes.push("그림이 있는 문항입니다. 그림과 표는 '문항' 보기에서 확인하세요.");
-    if (qx.unknown) notes.push(`글자로 옮기지 못한 ${qx.unknown}자(옛한글·특수 기호)는 □로 표시했습니다.`);
-    srcBody = `${notes.map(t => `<p class="srcnote">${esc(t)}</p>`).join("")}${psg ? `<details class="psg" id="psgBox"${S.psgOpen ? " open" : ""}><summary>${psgLabel} 보기</summary><div class="qtext">${esc(psg.text)}</div></details>` : ""}<div class="qtext">${esc(qx.text)}</div>`;
+    srcBody = `${noteHtml}${psg ? `<details class="psg" id="psgBox"${psgOpen}><summary>${psgLabel} 보기</summary><div class="qtext">${esc(psg.text)}</div></details>` : ""}<div class="qtext">${esc(qx.text)}</div>`;
   } else {
     srcBody = `<div class="notice">이 과목의 문제지 PDF가 아직 열려 있지 않습니다. <a href="#source">원문제 탭</a>에서 평가원 PDF를 열거나, 로컬에서는 pdf/ 폴더에 받아 두면 여기에 해당 페이지가 나옵니다. <a href="${KICE}" target="_blank" rel="noopener">평가원 문제 및 정답 페이지 열기</a></div>`;
   }
   el.hidden = false;
   el.classList.toggle("wide", !!S.wide);
-  el.innerHTML = `<div class="dhead"><div><div class="muted" style="font-size:12px">${esc(LABEL(d.sheet))} · ${esc(q.type)}</div><h3>${q.n}번 <span class="muted mono">[${q.pts}점]</span>${q.img ? ' <span class="pill">그림 포함</span>' : ""}</h3></div><button class="btn x" id="dClose" aria-label="닫기">닫기</button></div>
-  <div class="dbody">
-    <div class="kv"><div><b>정답(가답안)</b><span>${esc(fmtAns(d.sheet, q.n, q.ans))}</span></div><div><b>맞힌 모델</b><span>${okN}/${ms.length}</span></div><div><b>형식</b><span style="font-family:var(--f-body);font-size:13px">${isMultipleChoice(d.sheet, q.n) ? "5지 선다" : "단답형"}</span></div></div>
-    <div><div class="muted" style="font-size:12px;margin-bottom:6px">모델별 답안 (현재 필터 기준)</div><div class="ansgrp">${rows}</div></div>
-    <div><div class="muted" style="font-size:12px;margin-bottom:6px">원문제</div>
-      ${srcBar}${srcBody}
-    </div>
-  </div>`;
+  const srcSec = `<div><div class="muted" style="font-size:12px;margin-bottom:6px">원문제</div>${srcBar}${srcBody}</div>`;
+  const order = S.solve ? [srcSec, '<div id="myAns" class="myans"></div>', '<div id="reveal" class="reveal"></div>'] : ['<div id="reveal" class="reveal"></div>', '<div id="myAns" class="myans"></div>', srcSec];
+  el.innerHTML = `<div class="dhead"><div><div class="muted" style="font-size:12px">${esc(LABEL(d.sheet))} · ${esc(q.type)}</div><h3>${q.n}번 <span class="muted mono">[${q.pts}점]</span>${q.img ? ' <span class="pill">그림 포함</span>' : ""}</h3></div><div class="qnav"><button class="btn" id="qPrev" ${i === 0 ? "disabled" : ""} aria-label="이전 문항">◀ 이전</button><button class="btn" id="qNext" ${i === sh.qs.length - 1 ? "disabled" : ""} aria-label="다음 문항">다음 ▶</button><button class="btn x" id="dClose" aria-label="닫기">닫기</button></div></div>
+  <div class="dbody" id="dBody">${order.join("")}</div>`;
+  renderReveal(); renderMyAns();
+  $("#qPrev").onclick = () => { if (i > 0) openDrawer(d.sheet, sh.qs[i - 1].n); };
+  $("#qNext").onclick = () => { if (i < sh.qs.length - 1) openDrawer(d.sheet, sh.qs[i + 1].n); };
+  $("#dBody").onscroll = () => { if (S.pop && !S.pop.pinned) hidePop(); else if (S.pop) placePop(); };
   $("#dClose").onclick = () => { S.drawer = null; renderDrawer(); };
-  el.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.srcMode = b.dataset.mode; renderDrawer(); });
-  const wb = $("#dWide"); if (wb) wb.onclick = () => { S.wide = !S.wide; renderDrawer(); };
+  el.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.srcMode = b.dataset.mode; savePref("csat27-srcmode", S.srcMode); renderDrawer(); });
+  const wb = $("#dWide"); if (wb) wb.onclick = () => { S.wide = !S.wide; savePref("csat27-wide", S.wide ? "1" : ""); renderDrawer(); };
   const pb = $("#psgBox");
-  if (pb) pb.ontoggle = () => { S.psgOpen = pb.open; if (pb.open && mode === "clip") renderClips($("#psgClips"), hit.pdf.doc, psg.clips); };
-  if (mode === "clip") {
+  if (pb) pb.ontoggle = () => { S.psgOpen = pb.open; if (pb.open && (mode === "clip" || mode === "both")) renderClips($("#psgClips"), hit.pdf.doc, psg.clips); };
+  if (mode === "clip" || mode === "both") {
     renderClips($("#qClips"), hit.pdf.doc, qx.clips);
     if (psg && S.psgOpen) renderClips($("#psgClips"), hit.pdf.doc, psg.clips);
   }
@@ -995,8 +1030,124 @@ function renderDrawer() {
     hit.pdf.doc.getPage(d.page).then(pg => { const c = $("#pCanvas"); if (!c) return; const w = c.parentElement.clientWidth - 16; const vp0 = pg.getViewport({ scale: 1 }); const scale = (w / vp0.width) * (window.devicePixelRatio || 1); const vp = pg.getViewport({ scale }); c.width = vp.width; c.height = vp.height; pg.render({ canvasContext: c.getContext("2d"), viewport: vp }); });
   }
 }
+/* ---------- 내 답 확인 · 보기별 모델 ---------- */
+// 내 답은 이 브라우저에만 기억한다(localStorage, 실패하면 이번 세션에서만 유지)
+S.my = (() => { try { return JSON.parse(loadPref("csat27-my") || "{}") || {}; } catch (e) { return {}; } })();
+S.solve = loadPref("csat27-solve") === "1";
+const saveMy = () => savePref("csat27-my", JSON.stringify(S.my));
+const myKey = (sheet, n) => sheet + "|" + n;
+function myResult(sheet, q) { const v = S.my[myKey(sheet, q.n)]; return v == null ? null : { v: Number(v), ok: Number(v) === Number(q.ans) }; }
+function myStats(sheet) {
+  const sh = S.sheets[sheet]; let done = 0, ok = 0, pts = 0;
+  for (const q of sh.qs) { const r = myResult(sheet, q); if (!r) continue; done++; if (r.ok) { ok++; pts += q.pts; } }
+  return { done, ok, pts, total: sh.qs.length };
+}
+// 모델이 고른 값: 정답이면 정답 값, 오답이면 뽑힌 값, 무응답·파싱 실패는 없음
+function modelValue(a, q) { if (!a) return null; if (a.st === 0) return Number(q.ans); if (a.st === 1 && a.v !== null && a.v !== undefined && a.v !== "") return Number(a.v); return null; }
+function optModels(sheet, i, q, key) {
+  return visible().filter(m => { const a = m.ans[sheet]?.[i]; if (!a) return false; return typeof key === "string" ? a.st === +key.slice(2) : modelValue(a, q) === key; }).sort((a, b) => byRank(a, b));
+}
+function curQ() { const d = S.drawer; if (!d) return null; const sh = S.sheets[d.sheet], i = sh.qs.findIndex(q => q.n === d.n); return { d, sh, i, q: sh.qs[i] }; }
+function renderReveal() {
+  const c = curQ(), box = $("#reveal"); if (!c || !box) return;
+  const { d, i, q } = c, mine = myResult(d.sheet, q);
+  if (S.solve && !mine) { box.innerHTML = `<div class="notice">풀이 모드입니다. 답을 고르면 정답과 모델별 답안이 보입니다.</div>`; return; }
+  const ms = visible();
+  const groups = {}; ms.forEach(m => { const a = m.ans[d.sheet]?.[i]; if (!a) return; const k = a.st === 0 ? "정답" : a.st === 1 ? fmtAns(d.sheet, q.n, a.v) : ST_TXT[a.st]; (groups[k] || (groups[k] = { st: a.st, ms: [] })).ms.push(m); });
+  const okN = groups["정답"]?.ms.length || 0;
+  const rows = Object.entries(groups).sort((a, b) => a[1].st - b[1].st || b[1].ms.length - a[1].ms.length).map(([k, g]) => `<div class="ansrow"><span class="tag ${g.st === 0 ? "pill ok" : g.st === 1 ? "pill bad" : g.st === 2 ? "pill warn" : "pill na"}">${esc(k)}</span><div class="names">${g.ms.sort((a, b) => byRank(a, b)).map(m => `<span title="${esc(GROUPS[m.g])}"><i class="dot g-${m.g}"></i> ${esc(m.name)}</span>`).join("")}</div></div>`).join("");
+  box.innerHTML = `<div class="kv"><div><b>정답(가답안)</b><span>${esc(fmtAns(d.sheet, q.n, q.ans))}</span></div><div><b>맞힌 모델</b><span>${okN}/${ms.length}</span></div><div><b>형식</b><span style="font-family:var(--f-body);font-size:13px">${isMultipleChoice(d.sheet, q.n) ? "5지 선다" : "단답형"}</span></div></div>
+    <div><div class="muted" style="font-size:12px;margin-bottom:6px">모델별 답안 (현재 필터 기준)</div><div class="ansgrp">${rows}</div></div>`;
+}
+function setMine(v) {
+  const c = curQ(); if (!c) return;
+  if (v === null) delete S.my[myKey(c.d.sheet, c.q.n)]; else S.my[myKey(c.d.sheet, c.q.n)] = v;
+  saveMy(); renderMyAns(); renderReveal();
+}
+function renderMyAns() {
+  const c = curQ(), box = $("#myAns"); if (!c || !box) return;
+  const { d, i, q } = c, mine = myResult(d.sheet, q), reveal = !S.solve || !!mine, mc = isMultipleChoice(d.sheet, q.n);
+  const cnt = key => optModels(d.sheet, i, q, key).length;
+  const cls = v => !reveal ? "" : v === Number(q.ans) ? "ok" : mine && mine.v === v ? "bad" : "";
+  const extra = () => [2, 3].map(st => cnt("st" + st) ? `<button class="opt na" data-opt="st${st}">${ST_TXT[st]}<small>${cnt("st" + st)}</small></button>` : "").join("");
+  let body;
+  if (mc) {
+    body = `<div class="opts" role="group" aria-label="보기">${[1, 2, 3, 4, 5].map(k => `<button class="opt ${cls(k)}" data-opt="${k}" aria-pressed="${!!(mine && mine.v === k)}">${CIRCLED[k]}${reveal ? `<small>${cnt(k)}</small>` : ""}</button>`).join("")}${reveal ? extra() : ""}</div>`;
+  } else {
+    const vals = {}; visible().forEach(m => { const v = modelValue(m.ans[d.sheet]?.[i], q); if (v !== null && !Number.isNaN(v)) vals[v] = (vals[v] || 0) + 1; });
+    const chips = Object.entries(vals).sort((a, b) => b[1] - a[1]).map(([v, n]) => `<button class="opt ${cls(+v)}" data-opt="${esc(v)}">${esc(v)}<small>${n}</small></button>`).join("") + extra();
+    body = `<form id="myForm" class="myform"><input id="myIn" inputmode="numeric" autocomplete="off" placeholder="내 답(정수)" value="${mine ? esc(String(mine.v)) : ""}" aria-label="내 답"><button class="btn" type="submit">확인</button></form>${reveal && chips ? `<div class="muted" style="font-size:12px">모델이 낸 답 (누르면 그 답을 낸 모델)</div><div class="opts">${chips}</div>` : ""}`;
+  }
+  const verdict = mine
+    ? `<p class="verdict ${mine.ok ? "ok" : "bad"}">${mine.ok ? "정답입니다" : `오답입니다 · 정답 ${esc(fmtAns(d.sheet, q.n, q.ans))}`} <button class="linkbtn" id="myRetry">다시 풀기</button></p>`
+    : `<p class="muted" style="font-size:12.5px;margin:0">${mc ? "보기를 누르면 내 답으로 채점합니다(숫자 키 1~5도 됩니다)." : "답을 입력하고 확인을 누르면 채점합니다."}${reveal ? " 보기에 마우스를 올리거나 누르면 그 답을 고른 모델이 나옵니다." : ""}</p>`;
+  const st = myStats(d.sheet);
+  box.innerHTML = `<div class="myhead"><b>내 답 확인</b><label class="ctl"><input type="checkbox" id="solveT" ${S.solve ? "checked" : ""}> 풀이 모드 (답하기 전 정답·모델 답 가리기)</label></div>
+    ${body}${verdict}
+    <p class="mystat">이 과목 내 기록: ${st.total}문항 중 ${st.done}문항 풀어 ${st.ok}개 맞힘 · ${st.pts}점${st.done ? ` <button class="linkbtn" id="myClear">이 과목 기록 지우기</button>` : ""}</p>`;
+  box.querySelectorAll("[data-opt]").forEach(b => {
+    const key = /^st/.test(b.dataset.opt) ? b.dataset.opt : Number(b.dataset.opt);
+    b.onmouseenter = () => { if ((!S.solve || myResult(d.sheet, q)) && !(S.pop && S.pop.pinned)) showPop(b, key, false); };
+    b.onmouseleave = () => { if (S.pop && !S.pop.pinned) hidePop(); };
+    b.onclick = e => {
+      e.stopPropagation();
+      const was = S.pop && S.pop.pinned && S.pop.key === key;
+      if (mc && typeof key === "number" && !myResult(d.sheet, q)) setMine(key);
+      if (!S.solve || myResult(d.sheet, q)) {
+        if (was) { hidePop(); return; }
+        const nb = $("#myAns").querySelector(`[data-opt="${b.dataset.opt}"]`) || b;
+        showPop(nb, key, true);
+      }
+    };
+  });
+  const f = $("#myForm");
+  if (f) f.onsubmit = e => { e.preventDefault(); const inp = $("#myIn"), raw = inp.value.trim(); if (!/^-?\d+$/.test(raw)) { inp.setCustomValidity("정수로 입력하세요"); inp.reportValidity(); inp.oninput = () => inp.setCustomValidity(""); return; } setMine(Number(raw)); };
+  const rt = $("#myRetry"); if (rt) rt.onclick = e => { e.stopPropagation(); hidePop(); setMine(null); };
+  const cl = $("#myClear");
+  if (cl) cl.onclick = e => {
+    e.stopPropagation();
+    if (!cl.dataset.arm) { cl.dataset.arm = "1"; cl.textContent = "한 번 더 누르면 이 과목 기록을 지웁니다"; return; }
+    for (const qq of S.sheets[d.sheet].qs) delete S.my[myKey(d.sheet, qq.n)];
+    saveMy(); hidePop(); renderMyAns(); renderReveal();
+  };
+  $("#solveT").onchange = e => { S.solve = e.target.checked; savePref("csat27-solve", S.solve ? "1" : ""); renderDrawer(); };
+}
+// 원문제 탭: 과목별 내 기록(푼 과목만)
+function myScoreTable() {
+  const rows = ORDER.map(sh => [sh, myStats(sh)]).filter(([, st]) => st.done);
+  const head = `<h3 style="margin:18px 0 6px;font-size:15px">내 기록</h3>`;
+  if (!rows.length) return `${head}<p class="muted">문항 상세의 '내 답 확인'에서 답을 고르면 여기에 과목별로 모입니다.</p>`;
+  const td = 'style="padding:4px 12px;text-align:center"';
+  return `${head}<table class="grid" style="width:auto"><thead><tr><th style="padding:4px 12px;text-align:left">과목</th><th ${td}>푼 문항</th><th ${td}>맞힘</th><th ${td}>점수</th></tr></thead><tbody>${rows.map(([sh, st]) => `<tr><td style="padding:4px 12px">${esc(LABEL(sh))}</td><td class="mono" ${td}>${st.done}/${st.total}</td><td class="mono" ${td}>${st.ok}</td><td class="mono" ${td}>${st.pts}점</td></tr>`).join("")}</tbody></table>`;
+}
+// 보기별 모델 팝업 (마우스를 올리면 잠깐, 누르면 고정)
+function showPop(btn, key, pinned) {
+  const c = curQ(); if (!c) return;
+  const { d, i, q } = c, list = optModels(d.sheet, i, q, key);
+  const label = typeof key === "string" ? ST_TXT[+key.slice(2)] : fmtAns(d.sheet, q.n, key);
+  let pop = $("#optPop");
+  if (!pop) { pop = document.createElement("div"); pop.id = "optPop"; pop.className = "optpop"; pop.setAttribute("role", "dialog"); document.body.appendChild(pop); pop.onclick = e => e.stopPropagation(); }
+  pop.innerHTML = `<div class="pophead"><b>${esc(label)}</b><span class="muted">${list.length}개 모델${typeof key === "number" && key === Number(q.ans) ? " · 정답" : ""}</span></div>${list.length ? `<div class="names">${list.map(m => `<span title="${esc(GROUPS[m.g])}"><i class="dot g-${m.g}"></i> ${esc(m.name)}</span>`).join("")}</div>` : '<p class="muted" style="margin:6px 0 0">이 답을 고른 모델이 없습니다.</p>'}`;
+  pop.hidden = false;
+  S.pop = { key, pinned, btn };
+  placePop();
+}
+function placePop() {
+  const pop = $("#optPop"); if (!pop || pop.hidden || !S.pop) return;
+  const r = S.pop.btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  let top = r.bottom + 6; if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 6);
+  pop.style.top = top + "px"; pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+}
+function hidePop() { const pop = $("#optPop"); if (pop) pop.hidden = true; S.pop = null; }
+document.addEventListener("click", () => { if (S.pop) hidePop(); });
+window.addEventListener("resize", () => placePop());
+
 document.addEventListener("click", e => { const c = e.target.closest("[data-q]"); if (!c || c.closest("#drawer")) return; const [sh, n] = c.dataset.q.split("|"); openDrawer(sh, +n); });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && S.drawer) { S.drawer = null; renderDrawer(); } });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { if (S.pop) { hidePop(); return; } if (S.drawer) { S.drawer = null; renderDrawer(); } return; }
+  const c = curQ(); if (!c || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^[1-5]$/.test(e.key) && isMultipleChoice(c.d.sheet, c.q.n) && !myResult(c.d.sheet, c.q)) setMine(+e.key);
+});
 
 /* ---------- 라우팅 ---------- */
 const VIEWS = { ranking: viewRanking, model: viewModel, subject: viewSubject, insight: viewInsight, grid: viewGrid, types: viewTypes, local: viewLocal, source: viewSource };
