@@ -127,6 +127,18 @@ aside.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);backgro
 .pagebar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:12px}
 .pagebar button{padding:3px 8px;font-size:12px}
 .pagebar button[aria-pressed="true"]{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+aside.drawer.wide{width:min(1100px,100%)}
+.srcbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.srcbar button{padding:4px 10px;font-size:12.5px}
+.srcbar button[aria-pressed="true"]{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+.srcbar #dWide{margin-left:auto}
+.clips canvas{width:100%;height:auto;display:block;background:#fff;border-radius:3px}
+.clips canvas+canvas{margin-top:6px}
+details.psg{margin-bottom:8px}
+details.psg summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
+.qtext{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-size:15px;line-height:1.75;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+.qtext+.qtext{margin-top:8px}
+.srcnote{font-size:12.5px;color:var(--muted);margin:0 0 8px}
 .notice{border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--panel));padding:10px 12px;border-radius:4px;font-size:13px}
 .files{display:grid;gap:8px;margin-top:12px}
 .file{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--sunk);padding:8px 10px;border-radius:6px;font-size:13px}
@@ -857,6 +869,8 @@ async function restorePdfs() {
 }
 async function autoLoadLocalPdfs() {
   if (!/^https?:$/.test(location.protocol)) return;
+  // tools/parse_kice.py가 만든 문항별 영역·텍스트(로컬에만 있음)
+  try { const r = await fetch(LOCAL_PDF_DIR + "questions.json"); if (r.ok) { S.qx = await r.json(); if (S.drawer) renderDrawer(); } } catch (e) { }
   let n = 0;
   for (const [code, slot] of LOCAL_PDFS) {
     if (S.pdfs.some(p => p.slot === slot)) continue; // 직접 연 파일이 있으면 그것을 쓴다
@@ -882,7 +896,7 @@ function viewSource() {
     </ol>
     <div class="controls" style="margin-top:12px"><input type="file" id="pdfIn" accept="application/pdf,.pdf" multiple aria-label="문제지 PDF 열기"></div>
     <p class="notice" id="srcMsg" hidden></p>
-    ${S.localPdfs ? `<p class="muted">pdf/ 폴더에서 ${S.localPdfs}개를 자동으로 연결했습니다.</p>` : ""}
+    ${S.localPdfs ? `<p class="muted">pdf/ 폴더에서 ${S.localPdfs}개를 자동으로 연결했습니다.${S.qx ? ` 문항 ${Object.values(S.qx.sheets).reduce((s, v) => s + Object.keys(v.questions).length, 0)}개의 영역·텍스트(questions.json)도 불러와서, 문항 상세에서 '문항'(문항 부분만 크게)·'텍스트' 보기를 쓸 수 있습니다.` : " pdf/questions.json이 없어 쪽 전체 보기만 됩니다. 저장소에서 <span class=\"mono\">python -I tools/parse_kice.py pdf</span>를 실행하면 문항 보기와 텍스트 보기가 켜집니다."}</p>` : ""}
     <div class="files">${S.pdfs.length ? S.pdfs.map(p => `<div class="file"><span class="fn">${esc(p.name)}</span>${p.local ? '<span class="pill">pdf 폴더</span>' : ""}<span class="muted">${p.pages}쪽 · 번호 ${Object.keys(p.index).length}개 인식</span><label class="ctl">과목 <select data-slot="${esc(p.id)}">${SLOTS.map(s => `<option ${s === p.slot ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label><button class="btn" data-del="${esc(p.id)}">닫기</button></div>`).join("") : '<p class="muted">아직 연 PDF가 없습니다.</p>'}</div>
   </div></section>`;
   $("#pdfIn").onchange = e => { const fs = [...e.target.files]; if (fs.length) { alertBox("PDF를 여는 중…"); addFiles(fs).then(() => { const n = $("#srcMsg"); if (n && n.textContent === "PDF를 여는 중…") n.hidden = true; }); } };
@@ -906,6 +920,21 @@ function findPdfFor(sheet, n) {
   return { pdf, cands, page: cands[Math.min(occ, cands.length - 1)] || 1 };
 }
 
+// 문제지의 한 영역 [쪽, x0, y0, x1, y1](PDF 좌표, 위가 0)을 상자 폭에 맞춰 선명하게 그린다
+async function renderClips(box, doc, clips) {
+  if (!box || box.dataset.done) return;
+  box.dataset.done = "1";
+  const w = box.clientWidth || 500, dpr = window.devicePixelRatio || 1;
+  for (const [pg, x0, y0, x1, y1] of clips) {
+    const c = document.createElement("canvas"); box.appendChild(c);
+    const page = await doc.getPage(pg);
+    const scale = (w / (x1 - x0)) * dpr;
+    const vp = page.getViewport({ scale, offsetX: -x0 * scale, offsetY: -y0 * scale });
+    c.width = Math.ceil((x1 - x0) * scale); c.height = Math.ceil((y1 - y0) * scale);
+    await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+  }
+}
+
 /* ---------- 문항 상세 서랍 ---------- */
 function openDrawer(sheet, n) { S.drawer = { sheet, n, page: null }; renderDrawer(); }
 function renderDrawer() {
@@ -917,18 +946,49 @@ function renderDrawer() {
   const rows = Object.entries(groups).sort((a, b) => a[1].st - b[1].st || b[1].ms.length - a[1].ms.length).map(([k, g]) => `<div class="ansrow"><span class="tag ${g.st === 0 ? "pill ok" : g.st === 1 ? "pill bad" : g.st === 2 ? "pill warn" : "pill na"}">${esc(k)}</span><div class="names">${g.ms.sort((a, b) => byRank(a, b)).map(m => `<span title="${esc(GROUPS[m.g])}"><i class="dot g-${m.g}"></i> ${esc(m.name)}</span>`).join("")}</div></div>`).join("");
   const hit = findPdfFor(d.sheet, d.n);
   if (hit && d.page == null) d.page = hit.page;
+  // 원문제 보기: 문항(영역만 크게) · 쪽 전체 · 텍스트. 문항·텍스트는 로컬 pdf/questions.json이 있을 때만
+  const qsh = S.qx?.sheets?.[d.sheet], qx = qsh?.questions?.[String(d.n)];
+  const clipOk = !!(hit && qx && qx.clips.length && hit.pdf.name === qsh.file);
+  const psg = qx?.passage ? qsh.passages[qx.passage] : null;
+  const modes = [...(clipOk ? [["clip", "문항"]] : []), ...(hit ? [["page", "쪽 전체"]] : []), ...(qx ? [["text", "텍스트"]] : [])];
+  const mode = modes.some(m => m[0] === S.srcMode) ? S.srcMode : (modes[0]?.[0] || null);
+  const psgLabel = psg ? `공통 지문 [${psg.range[0]}～${psg.range[1]}]` : "";
+  const srcBar = modes.length ? `<div class="srcbar" role="group" aria-label="원문제 보기 방식">${modes.map(([k, l]) => `<button class="btn" data-mode="${k}" aria-pressed="${k === mode}">${l}</button>`).join("")}<button class="btn" id="dWide" aria-pressed="${!!S.wide}">넓게 보기</button></div>` : "";
+  const pageBox = hit ? `<div class="pdfbox"><div class="pagebar"><span class="muted">${esc(hit.pdf.name)}</span><button class="btn" id="pPrev">이전</button><span class="mono">${d.page}/${hit.pdf.pages}쪽</span><button class="btn" id="pNext">다음</button>${hit.cands.length ? `<span class="muted">후보</span>${hit.cands.map(p => `<button class="btn" data-page="${p}" aria-pressed="${p === d.page}">${p}쪽</button>`).join("")}` : '<span class="muted">번호를 찾지 못해 1쪽부터 보여 줍니다</span>'}</div><canvas id="pCanvas"></canvas></div>` : "";
+  let srcBody;
+  if (mode === "clip") {
+    srcBody = `<div class="pdfbox">${psg ? `<details class="psg" id="psgBox"${S.psgOpen ? " open" : ""}><summary>${psgLabel} 보기</summary><div class="clips" id="psgClips"></div></details>` : ""}<div class="clips" id="qClips"></div></div>`;
+  } else if (mode === "page") {
+    srcBody = pageBox;
+  } else if (mode === "text") {
+    const notes = [];
+    if (qx.eq) notes.push("수식은 글자 위치를 보고 옮겼습니다. 분수는 (분자)/(분모), 지수는 ^, 아래첨자는 _로 적었고 선분 위 줄 같은 표시는 빠집니다. 정확한 식은 '문항' 보기에서 확인하세요.");
+    if (q.img) notes.push("그림이 있는 문항입니다. 그림과 표는 '문항' 보기에서 확인하세요.");
+    if (qx.unknown) notes.push(`글자로 옮기지 못한 ${qx.unknown}자(옛한글·특수 기호)는 □로 표시했습니다.`);
+    srcBody = `${notes.map(t => `<p class="srcnote">${esc(t)}</p>`).join("")}${psg ? `<details class="psg" id="psgBox"${S.psgOpen ? " open" : ""}><summary>${psgLabel} 보기</summary><div class="qtext">${esc(psg.text)}</div></details>` : ""}<div class="qtext">${esc(qx.text)}</div>`;
+  } else {
+    srcBody = `<div class="notice">이 과목의 문제지 PDF가 아직 열려 있지 않습니다. <a href="#source">원문제 탭</a>에서 평가원 PDF를 열거나, 로컬에서는 pdf/ 폴더에 받아 두면 여기에 해당 페이지가 나옵니다. <a href="${KICE}" target="_blank" rel="noopener">평가원 문제 및 정답 페이지 열기</a></div>`;
+  }
   el.hidden = false;
+  el.classList.toggle("wide", !!S.wide);
   el.innerHTML = `<div class="dhead"><div><div class="muted" style="font-size:12px">${esc(LABEL(d.sheet))} · ${esc(q.type)}</div><h3>${q.n}번 <span class="muted mono">[${q.pts}점]</span>${q.img ? ' <span class="pill">그림 포함</span>' : ""}</h3></div><button class="btn x" id="dClose" aria-label="닫기">닫기</button></div>
   <div class="dbody">
     <div class="kv"><div><b>정답(가답안)</b><span>${esc(fmtAns(d.sheet, q.n, q.ans))}</span></div><div><b>맞힌 모델</b><span>${okN}/${ms.length}</span></div><div><b>형식</b><span style="font-family:var(--f-body);font-size:13px">${isMultipleChoice(d.sheet, q.n) ? "5지 선다" : "단답형"}</span></div></div>
     <div><div class="muted" style="font-size:12px;margin-bottom:6px">모델별 답안 (현재 필터 기준)</div><div class="ansgrp">${rows}</div></div>
     <div><div class="muted" style="font-size:12px;margin-bottom:6px">원문제</div>
-      ${hit ? `<div class="pdfbox"><div class="pagebar"><span class="muted">${esc(hit.pdf.name)}</span><button class="btn" id="pPrev">이전</button><span class="mono">${d.page}/${hit.pdf.pages}쪽</span><button class="btn" id="pNext">다음</button>${hit.cands.length ? `<span class="muted">후보</span>${hit.cands.map(p => `<button class="btn" data-page="${p}" aria-pressed="${p === d.page}">${p}쪽</button>`).join("")}` : '<span class="muted">번호를 찾지 못해 1쪽부터 보여 줍니다</span>'}</div><canvas id="pCanvas"></canvas></div>`
-      : `<div class="notice">이 과목의 문제지 PDF가 아직 열려 있지 않습니다. <a href="#source">원문제 탭</a>에서 평가원 PDF를 열거나, 로컬에서는 pdf/ 폴더에 받아 두면 여기에 해당 페이지가 나옵니다. <a href="${KICE}" target="_blank" rel="noopener">평가원 문제 및 정답 페이지 열기</a></div>`}
+      ${srcBar}${srcBody}
     </div>
   </div>`;
   $("#dClose").onclick = () => { S.drawer = null; renderDrawer(); };
-  if (hit) {
+  el.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.srcMode = b.dataset.mode; renderDrawer(); });
+  const wb = $("#dWide"); if (wb) wb.onclick = () => { S.wide = !S.wide; renderDrawer(); };
+  const pb = $("#psgBox");
+  if (pb) pb.ontoggle = () => { S.psgOpen = pb.open; if (pb.open && mode === "clip") renderClips($("#psgClips"), hit.pdf.doc, psg.clips); };
+  if (mode === "clip") {
+    renderClips($("#qClips"), hit.pdf.doc, qx.clips);
+    if (psg && S.psgOpen) renderClips($("#psgClips"), hit.pdf.doc, psg.clips);
+  }
+  if (hit && mode === "page") {
     const go = p => { d.page = Math.max(1, Math.min(hit.pdf.pages, p)); renderDrawer(); };
     $("#pPrev").onclick = () => go(d.page - 1); $("#pNext").onclick = () => go(d.page + 1);
     el.querySelectorAll("[data-page]").forEach(b => b.onclick = () => go(+b.dataset.page));
