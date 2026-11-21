@@ -142,6 +142,9 @@ details.psg summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
 .dhead .qnav{display:flex;gap:6px;margin-left:auto;align-items:center}
 .dhead .qnav .x{margin-left:0}
 .reveal{display:grid;gap:14px}
+.psghead{font-size:12.5px;font-weight:600;color:var(--muted);margin:2px 0 6px}
+.pdfbox .clips+.psghead,.both+.psghead{margin-top:12px}
+.kv .hidden-ans{font-size:13px!important;font-weight:500}
 .myans{border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:grid;gap:8px;background:var(--sunk)}
 .myhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-size:13px}
 .opts{display:flex;flex-wrap:wrap;gap:6px}
@@ -990,24 +993,27 @@ function renderDrawer() {
   if (qx && q.img) notes.push("그림이 있는 문항입니다. 그림과 표는 원문에서 확인하세요.");
   if (qx?.unknown) notes.push(`글자로 옮기지 못한 ${qx.unknown}자(옛한글·특수 기호)는 □로 표시했습니다.`);
   const noteHtml = notes.map(t => `<p class="srcnote">${esc(t)}</p>`).join("");
-  const psgOpen = S.psgOpen ? " open" : "";
+  // 공통 지문이 있는 문항은 지문을 문제 위에 늘 함께 보여 준다
+  const psgHead = psg ? `<div class="psghead">${psgLabel}</div>` : "";
+  const qHead = psg ? `<div class="psghead">${q.n}번</div>` : "";
   let srcBody;
   if (mode === "clip") {
-    srcBody = `<div class="pdfbox">${psg ? `<details class="psg" id="psgBox"${psgOpen}><summary>${psgLabel} 보기</summary><div class="clips" id="psgClips"></div></details>` : ""}<div class="clips" id="qClips"></div></div>`;
+    srcBody = `<div class="pdfbox">${psg ? `${psgHead}<div class="clips" id="psgClips"></div>${qHead}` : ""}<div class="clips" id="qClips"></div></div>`;
   } else if (mode === "both") {
     // 기본 폭에서는 원문 아래 텍스트, 넓게 보기에서는 왼쪽 원문·오른쪽 텍스트
-    srcBody = `${psg ? `<details class="psg" id="psgBox"${psgOpen}><summary>${psgLabel} 보기</summary><div class="both"><div class="pdfbox"><div class="clips" id="psgClips"></div></div><div class="qtext">${esc(psg.text)}</div></div></details>` : ""}<div class="both"><div class="pdfbox"><div class="clips" id="qClips"></div></div><div>${noteHtml}<div class="qtext">${esc(qx.text)}</div></div></div>`;
+    srcBody = `${psg ? `${psgHead}<div class="both"><div class="pdfbox"><div class="clips" id="psgClips"></div></div><div class="qtext">${esc(psg.text)}</div></div>${qHead}` : ""}<div class="both"><div class="pdfbox"><div class="clips" id="qClips"></div></div><div>${noteHtml}<div class="qtext">${esc(qx.text)}</div></div></div>`;
   } else if (mode === "page") {
     srcBody = pageBox;
   } else if (mode === "text") {
-    srcBody = `${noteHtml}${psg ? `<details class="psg" id="psgBox"${psgOpen}><summary>${psgLabel} 보기</summary><div class="qtext">${esc(psg.text)}</div></details>` : ""}<div class="qtext">${esc(qx.text)}</div>`;
+    srcBody = `${noteHtml}${psg ? `${psgHead}<div class="qtext">${esc(psg.text)}</div>${qHead}` : ""}<div class="qtext">${esc(qx.text)}</div>`;
   } else {
     srcBody = `<div class="notice">이 과목의 문제지 PDF가 아직 열려 있지 않습니다. <a href="#source">원문제 탭</a>에서 평가원 PDF를 열거나, 로컬에서는 pdf/ 폴더에 받아 두면 여기에 해당 페이지가 나옵니다. <a href="${KICE}" target="_blank" rel="noopener">평가원 문제 및 정답 페이지 열기</a></div>`;
   }
   el.hidden = false;
   el.classList.toggle("wide", !!S.wide);
   const srcSec = `<div><div class="muted" style="font-size:12px;margin-bottom:6px">원문제</div>${srcBar}${srcBody}</div>`;
-  const order = S.solve ? [srcSec, '<div id="myAns" class="myans"></div>', '<div id="reveal" class="reveal"></div>'] : ['<div id="reveal" class="reveal"></div>', '<div id="myAns" class="myans"></div>', srcSec];
+  // 순서: 원문제 → 내 답 확인 → 정답·모델 답안 (정답을 먼저 보지 않게)
+  const order = [srcSec, '<div id="myAns" class="myans"></div>', '<div id="reveal" class="reveal"></div>'];
   el.innerHTML = `<div class="dhead"><div><div class="muted" style="font-size:12px">${esc(LABEL(d.sheet))} · ${esc(q.type)}</div><h3>${q.n}번 <span class="muted mono">[${q.pts}점]</span>${q.img ? ' <span class="pill">그림 포함</span>' : ""}</h3></div><div class="qnav"><button class="btn" id="qPrev" ${i === 0 ? "disabled" : ""} aria-label="이전 문항">◀ 이전</button><button class="btn" id="qNext" ${i === sh.qs.length - 1 ? "disabled" : ""} aria-label="다음 문항">다음 ▶</button><button class="btn x" id="dClose" aria-label="닫기">닫기</button></div></div>
   <div class="dbody" id="dBody">${order.join("")}</div>`;
   renderReveal(); renderMyAns();
@@ -1017,11 +1023,9 @@ function renderDrawer() {
   $("#dClose").onclick = () => { S.drawer = null; renderDrawer(); };
   el.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.srcMode = b.dataset.mode; savePref("csat27-srcmode", S.srcMode); renderDrawer(); });
   const wb = $("#dWide"); if (wb) wb.onclick = () => { S.wide = !S.wide; savePref("csat27-wide", S.wide ? "1" : ""); renderDrawer(); };
-  const pb = $("#psgBox");
-  if (pb) pb.ontoggle = () => { S.psgOpen = pb.open; if (pb.open && (mode === "clip" || mode === "both")) renderClips($("#psgClips"), hit.pdf.doc, psg.clips); };
   if (mode === "clip" || mode === "both") {
+    if (psg) renderClips($("#psgClips"), hit.pdf.doc, psg.clips);
     renderClips($("#qClips"), hit.pdf.doc, qx.clips);
-    if (psg && S.psgOpen) renderClips($("#psgClips"), hit.pdf.doc, psg.clips);
   }
   if (hit && mode === "page") {
     const go = p => { d.page = Math.max(1, Math.min(hit.pdf.pages, p)); renderDrawer(); };
@@ -1033,7 +1037,9 @@ function renderDrawer() {
 /* ---------- 내 답 확인 · 보기별 모델 ---------- */
 // 내 답은 이 브라우저에만 기억한다(localStorage, 실패하면 이번 세션에서만 유지)
 S.my = (() => { try { return JSON.parse(loadPref("csat27-my") || "{}") || {}; } catch (e) { return {}; } })();
-S.solve = loadPref("csat27-solve") === "1";
+// 정답 보기(기본 끔): 끄면 정답 값만 가린다. 맞힌 모델 수·보기별 모델 수는 늘 보인다. 내가 답한 문항은 정답을 보여 준다
+S.showAns = loadPref("csat27-showans") === "1";
+const ansShown = (sheet, q) => S.showAns || !!myResult(sheet, q);
 const saveMy = () => savePref("csat27-my", JSON.stringify(S.my));
 const myKey = (sheet, n) => sheet + "|" + n;
 function myResult(sheet, q) { const v = S.my[myKey(sheet, q.n)]; return v == null ? null : { v: Number(v), ok: Number(v) === Number(q.ans) }; }
@@ -1050,13 +1056,12 @@ function optModels(sheet, i, q, key) {
 function curQ() { const d = S.drawer; if (!d) return null; const sh = S.sheets[d.sheet], i = sh.qs.findIndex(q => q.n === d.n); return { d, sh, i, q: sh.qs[i] }; }
 function renderReveal() {
   const c = curQ(), box = $("#reveal"); if (!c || !box) return;
-  const { d, i, q } = c, mine = myResult(d.sheet, q);
-  if (S.solve && !mine) { box.innerHTML = `<div class="notice">풀이 모드입니다. 답을 고르면 정답과 모델별 답안이 보입니다.</div>`; return; }
+  const { d, i, q } = c;
   const ms = visible();
   const groups = {}; ms.forEach(m => { const a = m.ans[d.sheet]?.[i]; if (!a) return; const k = a.st === 0 ? "정답" : a.st === 1 ? fmtAns(d.sheet, q.n, a.v) : ST_TXT[a.st]; (groups[k] || (groups[k] = { st: a.st, ms: [] })).ms.push(m); });
   const okN = groups["정답"]?.ms.length || 0;
   const rows = Object.entries(groups).sort((a, b) => a[1].st - b[1].st || b[1].ms.length - a[1].ms.length).map(([k, g]) => `<div class="ansrow"><span class="tag ${g.st === 0 ? "pill ok" : g.st === 1 ? "pill bad" : g.st === 2 ? "pill warn" : "pill na"}">${esc(k)}</span><div class="names">${g.ms.sort((a, b) => byRank(a, b)).map(m => `<span title="${esc(GROUPS[m.g])}"><i class="dot g-${m.g}"></i> ${esc(m.name)}</span>`).join("")}</div></div>`).join("");
-  box.innerHTML = `<div class="kv"><div><b>정답(가답안)</b><span>${esc(fmtAns(d.sheet, q.n, q.ans))}</span></div><div><b>맞힌 모델</b><span>${okN}/${ms.length}</span></div><div><b>형식</b><span style="font-family:var(--f-body);font-size:13px">${isMultipleChoice(d.sheet, q.n) ? "5지 선다" : "단답형"}</span></div></div>
+  box.innerHTML = `<div class="kv"><div><b>정답(가답안)</b><span>${ansShown(d.sheet, q) ? esc(fmtAns(d.sheet, q.n, q.ans)) : '<span class="muted hidden-ans">가림 · 위 \'정답 보기\'</span>'}</span></div><div><b>맞힌 모델</b><span>${okN}/${ms.length}</span></div><div><b>형식</b><span style="font-family:var(--f-body);font-size:13px">${isMultipleChoice(d.sheet, q.n) ? "5지 선다" : "단답형"}</span></div></div>
     <div><div class="muted" style="font-size:12px;margin-bottom:6px">모델별 답안 (현재 필터 기준)</div><div class="ansgrp">${rows}</div></div>`;
 }
 function setMine(v) {
@@ -1066,9 +1071,9 @@ function setMine(v) {
 }
 function renderMyAns() {
   const c = curQ(), box = $("#myAns"); if (!c || !box) return;
-  const { d, i, q } = c, mine = myResult(d.sheet, q), reveal = !S.solve || !!mine, mc = isMultipleChoice(d.sheet, q.n);
+  const { d, i, q } = c, mine = myResult(d.sheet, q), reveal = true, shown = ansShown(d.sheet, q), mc = isMultipleChoice(d.sheet, q.n);
   const cnt = key => optModels(d.sheet, i, q, key).length;
-  const cls = v => !reveal ? "" : v === Number(q.ans) ? "ok" : mine && mine.v === v ? "bad" : "";
+  const cls = v => shown && v === Number(q.ans) ? "ok" : mine && mine.v === v && !mine.ok ? "bad" : "";
   const extra = () => [2, 3].map(st => cnt("st" + st) ? `<button class="opt na" data-opt="st${st}">${ST_TXT[st]}<small>${cnt("st" + st)}</small></button>` : "").join("");
   let body;
   if (mc) {
@@ -1082,22 +1087,20 @@ function renderMyAns() {
     ? `<p class="verdict ${mine.ok ? "ok" : "bad"}">${mine.ok ? "정답입니다" : `오답입니다 · 정답 ${esc(fmtAns(d.sheet, q.n, q.ans))}`} <button class="linkbtn" id="myRetry">다시 풀기</button></p>`
     : `<p class="muted" style="font-size:12.5px;margin:0">${mc ? "보기를 누르면 내 답으로 채점합니다(숫자 키 1~5도 됩니다)." : "답을 입력하고 확인을 누르면 채점합니다."}${reveal ? " 보기에 마우스를 올리거나 누르면 그 답을 고른 모델이 나옵니다." : ""}</p>`;
   const st = myStats(d.sheet);
-  box.innerHTML = `<div class="myhead"><b>내 답 확인</b><label class="ctl"><input type="checkbox" id="solveT" ${S.solve ? "checked" : ""}> 풀이 모드 (답하기 전 정답·모델 답 가리기)</label></div>
+  box.innerHTML = `<div class="myhead"><b>내 답 확인</b><label class="ctl"><input type="checkbox" id="ansT" ${S.showAns ? "checked" : ""}> 정답 보기</label></div>
     ${body}${verdict}
     <p class="mystat">이 과목 내 기록: ${st.total}문항 중 ${st.done}문항 풀어 ${st.ok}개 맞힘 · ${st.pts}점${st.done ? ` <button class="linkbtn" id="myClear">이 과목 기록 지우기</button>` : ""}</p>`;
   box.querySelectorAll("[data-opt]").forEach(b => {
     const key = /^st/.test(b.dataset.opt) ? b.dataset.opt : Number(b.dataset.opt);
-    b.onmouseenter = () => { if ((!S.solve || myResult(d.sheet, q)) && !(S.pop && S.pop.pinned)) showPop(b, key, false); };
+    b.onmouseenter = () => { if (!(S.pop && S.pop.pinned)) showPop(b, key, false); };
     b.onmouseleave = () => { if (S.pop && !S.pop.pinned) hidePop(); };
     b.onclick = e => {
       e.stopPropagation();
       const was = S.pop && S.pop.pinned && S.pop.key === key;
       if (mc && typeof key === "number" && !myResult(d.sheet, q)) setMine(key);
-      if (!S.solve || myResult(d.sheet, q)) {
-        if (was) { hidePop(); return; }
-        const nb = $("#myAns").querySelector(`[data-opt="${b.dataset.opt}"]`) || b;
-        showPop(nb, key, true);
-      }
+      if (was) { hidePop(); return; }
+      const nb = $("#myAns").querySelector(`[data-opt="${b.dataset.opt}"]`) || b;
+      showPop(nb, key, true);
     };
   });
   const f = $("#myForm");
@@ -1110,7 +1113,7 @@ function renderMyAns() {
     for (const qq of S.sheets[d.sheet].qs) delete S.my[myKey(d.sheet, qq.n)];
     saveMy(); hidePop(); renderMyAns(); renderReveal();
   };
-  $("#solveT").onchange = e => { S.solve = e.target.checked; savePref("csat27-solve", S.solve ? "1" : ""); renderDrawer(); };
+  $("#ansT").onchange = e => { S.showAns = e.target.checked; savePref("csat27-showans", S.showAns ? "1" : ""); hidePop(); renderMyAns(); renderReveal(); };
 }
 // 원문제 탭: 과목별 내 기록(푼 과목만)
 function myScoreTable() {
@@ -1127,7 +1130,7 @@ function showPop(btn, key, pinned) {
   const label = typeof key === "string" ? ST_TXT[+key.slice(2)] : fmtAns(d.sheet, q.n, key);
   let pop = $("#optPop");
   if (!pop) { pop = document.createElement("div"); pop.id = "optPop"; pop.className = "optpop"; pop.setAttribute("role", "dialog"); document.body.appendChild(pop); pop.onclick = e => e.stopPropagation(); }
-  pop.innerHTML = `<div class="pophead"><b>${esc(label)}</b><span class="muted">${list.length}개 모델${typeof key === "number" && key === Number(q.ans) ? " · 정답" : ""}</span></div>${list.length ? `<div class="names">${list.map(m => `<span title="${esc(GROUPS[m.g])}"><i class="dot g-${m.g}"></i> ${esc(m.name)}</span>`).join("")}</div>` : '<p class="muted" style="margin:6px 0 0">이 답을 고른 모델이 없습니다.</p>'}`;
+  pop.innerHTML = `<div class="pophead"><b>${esc(label)}</b><span class="muted">${list.length}개 모델${typeof key === "number" && key === Number(q.ans) && ansShown(d.sheet, q) ? " · 정답" : ""}</span></div>${list.length ? `<div class="names">${list.map(m => `<span title="${esc(GROUPS[m.g])}"><i class="dot g-${m.g}"></i> ${esc(m.name)}</span>`).join("")}</div>` : '<p class="muted" style="margin:6px 0 0">이 답을 고른 모델이 없습니다.</p>'}`;
   pop.hidden = false;
   S.pop = { key, pinned, btn };
   placePop();
