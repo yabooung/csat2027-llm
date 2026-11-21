@@ -801,8 +801,13 @@ function viewInsight() {
 }
 
 /* ---------- 5. 원문제 (로컬 PDF) ---------- */
-const KICE = "https://www.suneung.re.kr/boardCnts/list.do?boardID=1500234&m=0403&s=suneung";
+const KICE = "https://cdn.kice.re.kr/27dae-suneung/index.html";
 const SLOTS = ["국어", "수학", "영어", "한국사", "사회탐구(통합)", "과학탐구(통합)", ...SOC, ...SCI];
+// 로컬 pdf/ 폴더에 평가원 파일 이름 그대로 받아 둔 문제지를 자동으로 연결한다(정답표 …a.pdf는 쓰지 않음).
+// 사탐 42_1~9·과탐 43_1~8은 평가원 페이지 순서이며 SOC·SCI 순서와 같다. 공개 페이지에는 이 폴더가 없어 첫 요청에서 멈춘다.
+const LOCAL_PDF_DIR = "pdf/";
+const LOCAL_PDFS = [["1", "국어"], ["2", "수학"], ["3", "영어"], ["41", "한국사"],
+  ...SOC.map((s, i) => [`42_${i + 1}`, s]), ...SCI.map((s, i) => [`43_${i + 1}`, s])];
 function guessSlot(fname) {
   const f = fname.replace(/\s/g, "");
   for (const s of [...SOC, ...SCI]) { const roman = s.replace(/1$/, "Ⅰ").replace(/2$/, "Ⅱ"), latin = s.replace(/1$/, "I").replace(/2$/, "II"); if (f.includes(s) || f.includes(roman) || f.includes(latin)) return s; }
@@ -850,21 +855,38 @@ async function restorePdfs() {
   for (const r of recs) { try { S.pdfs.push(await openPdf(r)); } catch (e) { } }
   if (location.hash === "#source") viewSource();
 }
+async function autoLoadLocalPdfs() {
+  if (!/^https?:$/.test(location.protocol)) return;
+  let n = 0;
+  for (const [code, slot] of LOCAL_PDFS) {
+    if (S.pdfs.some(p => p.slot === slot)) continue; // 직접 연 파일이 있으면 그것을 쓴다
+    const name = `27DaeSuneung_${code}.pdf`;
+    let buf = null;
+    try { const r = await fetch(LOCAL_PDF_DIR + name); if (r.ok) buf = await r.arrayBuffer(); } catch (e) { }
+    if (!buf) { if (!n) return; continue; }
+    try { S.pdfs.push(await openPdf({ id: "local|" + name, name, slot, buf, local: true })); n++; } catch (e) { continue; }
+    S.localPdfs = n;
+    if (S.drawer && S.drawer.page == null && findPdfFor(S.drawer.sheet, S.drawer.n)) renderDrawer();
+  }
+  if (n && location.hash === "#source") viewSource();
+}
 function viewSource() {
   $("#app").innerHTML = `<section class="view"><div class="panel">
     <h2>원문제 연결</h2>
     <p class="hint">평가원 문제지에는 "허락 없이 복제·배포·전자출판 금지"라는 저작권 고지가 있어서, 이 페이지에는 문제를 싣지 않았습니다. 대신 평가원에서 받은 PDF를 여기서 열면, 문항 상세 창에서 해당 문항이 있는 페이지를 바로 보여 줍니다. 파일은 이 브라우저 안에서만 열리고 어디에도 업로드되지 않습니다.</p>
     <ol class="notes" style="padding-left:20px">
-      <li><a href="${KICE}" target="_blank" rel="noopener">평가원 기출문제 게시판</a>에서 학년도 2027을 골라 영역별 '문제 및 정답' PDF를 받습니다.</li>
-      <li>아래에서 PDF를 엽니다(여러 개를 한 번에 열 수 있습니다). 파일 이름으로 과목을 추정하니, 틀리면 옆의 선택 상자에서 고쳐 주세요.</li>
+      <li><a href="${KICE}" target="_blank" rel="noopener">평가원 2027 수능 문제 및 정답 페이지</a>에서 영역별 문제 PDF를 받습니다.</li>
+      <li>이 저장소를 로컬 서버로 열 때는 받은 파일을 이름 그대로(예: <span class="mono">27DaeSuneung_1.pdf</span>) <span class="mono">pdf/</span> 폴더에 두면 자동으로 연결됩니다. 이 폴더의 PDF는 git에 올라가지 않습니다.</li>
+      <li>또는 아래에서 PDF를 엽니다(여러 개를 한 번에 열 수 있습니다). 파일 이름으로 과목을 추정하니, 틀리면 옆의 선택 상자에서 고쳐 주세요.</li>
       <li>정오표나 오답 목록에서 문항을 누르면 오른쪽 창에 원문제 페이지가 나옵니다. 페이지를 잘못 찾았으면 후보 페이지 버튼이나 이전/다음으로 옮기면 됩니다.</li>
     </ol>
     <div class="controls" style="margin-top:12px"><input type="file" id="pdfIn" accept="application/pdf,.pdf" multiple aria-label="문제지 PDF 열기"></div>
     <p class="notice" id="srcMsg" hidden></p>
-    <div class="files">${S.pdfs.length ? S.pdfs.map(p => `<div class="file"><span class="fn">${esc(p.name)}</span><span class="muted">${p.pages}쪽 · 번호 ${Object.keys(p.index).length}개 인식</span><label class="ctl">과목 <select data-slot="${esc(p.id)}">${SLOTS.map(s => `<option ${s === p.slot ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label><button class="btn" data-del="${esc(p.id)}">닫기</button></div>`).join("") : '<p class="muted">아직 연 PDF가 없습니다.</p>'}</div>
+    ${S.localPdfs ? `<p class="muted">pdf/ 폴더에서 ${S.localPdfs}개를 자동으로 연결했습니다.</p>` : ""}
+    <div class="files">${S.pdfs.length ? S.pdfs.map(p => `<div class="file"><span class="fn">${esc(p.name)}</span>${p.local ? '<span class="pill">pdf 폴더</span>' : ""}<span class="muted">${p.pages}쪽 · 번호 ${Object.keys(p.index).length}개 인식</span><label class="ctl">과목 <select data-slot="${esc(p.id)}">${SLOTS.map(s => `<option ${s === p.slot ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label><button class="btn" data-del="${esc(p.id)}">닫기</button></div>`).join("") : '<p class="muted">아직 연 PDF가 없습니다.</p>'}</div>
   </div></section>`;
   $("#pdfIn").onchange = e => { const fs = [...e.target.files]; if (fs.length) { alertBox("PDF를 여는 중…"); addFiles(fs).then(() => { const n = $("#srcMsg"); if (n && n.textContent === "PDF를 여는 중…") n.hidden = true; }); } };
-  $("#app").onchange = e => { const s = e.target.closest("[data-slot]"); if (!s) return; const p = S.pdfs.find(x => x.id === s.dataset.slot); if (p) { p.slot = s.value; idb.put({ id: p.id, name: p.name, slot: p.slot, buf: p.buf }); } };
+  $("#app").onchange = e => { const s = e.target.closest("[data-slot]"); if (!s) return; const p = S.pdfs.find(x => x.id === s.dataset.slot); if (p) { p.slot = s.value; if (!p.local) idb.put({ id: p.id, name: p.name, slot: p.slot, buf: p.buf }); } };
   $("#app").onclick = e => { const d = e.target.closest("[data-del]"); if (!d) return; S.pdfs = S.pdfs.filter(x => x.id !== d.dataset.del); idb.del(d.dataset.del); viewSource(); };
 }
 function findPdfFor(sheet, n) {
@@ -902,7 +924,7 @@ function renderDrawer() {
     <div><div class="muted" style="font-size:12px;margin-bottom:6px">모델별 답안 (현재 필터 기준)</div><div class="ansgrp">${rows}</div></div>
     <div><div class="muted" style="font-size:12px;margin-bottom:6px">원문제</div>
       ${hit ? `<div class="pdfbox"><div class="pagebar"><span class="muted">${esc(hit.pdf.name)}</span><button class="btn" id="pPrev">이전</button><span class="mono">${d.page}/${hit.pdf.pages}쪽</span><button class="btn" id="pNext">다음</button>${hit.cands.length ? `<span class="muted">후보</span>${hit.cands.map(p => `<button class="btn" data-page="${p}" aria-pressed="${p === d.page}">${p}쪽</button>`).join("")}` : '<span class="muted">번호를 찾지 못해 1쪽부터 보여 줍니다</span>'}</div><canvas id="pCanvas"></canvas></div>`
-      : `<div class="notice">이 과목의 문제지 PDF가 아직 열려 있지 않습니다. <a href="#source">원문제 탭</a>에서 평가원 PDF를 열면 여기에 해당 페이지가 나옵니다. <a href="${KICE}" target="_blank" rel="noopener">평가원 기출문제 게시판 열기</a></div>`}
+      : `<div class="notice">이 과목의 문제지 PDF가 아직 열려 있지 않습니다. <a href="#source">원문제 탭</a>에서 평가원 PDF를 열거나, 로컬에서는 pdf/ 폴더에 받아 두면 여기에 해당 페이지가 나옵니다. <a href="${KICE}" target="_blank" rel="noopener">평가원 문제 및 정답 페이지 열기</a></div>`}
     </div>
   </div>`;
   $("#dClose").onclick = () => { S.drawer = null; renderDrawer(); };
@@ -931,7 +953,7 @@ load().then(() => {
   $("#metaRow").innerHTML = `<span>모델 <b>${S.models.length}</b>개</span><span>과목 <b>${ORDER.length}</b>개 시트 · <b>${nq}</b>문항</span><span>채점 기준 <b>가답안</b> (최종 정답 12/1 발표)</span><span>데이터 수집 <b>2026-11-20</b></span>`;
   for (const n of [...S.only]) if (!S.byName[n]) S.only.delete(n);
   if (S.only.size) S.dashModel = [...S.only][0];
-  renderFilters(); renderSel(); route(); restorePdfs();
+  renderFilters(); renderSel(); route(); restorePdfs().then(autoLoadLocalPdfs);
 }).catch(e => { $("#app").innerHTML = `<div class="panel"><h2>데이터를 불러오지 못했습니다</h2><p class="hint">${esc(e.message)}. 페이지를 새로 고쳐 보세요.</p></div>`; });
 </script>
 
