@@ -127,7 +127,8 @@ aside.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);backgro
 .pagebar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:12px}
 .pagebar button{padding:3px 8px;font-size:12px}
 .pagebar button[aria-pressed="true"]{background:var(--accent);color:var(--panel);border-color:var(--accent)}
-aside.drawer.wide{width:min(1100px,100%)}
+aside.drawer{width:min(100%,max(1100px,66vw))}
+aside.drawer.wide{width:100%}
 .srcbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
 .srcbar button{padding:4px 10px;font-size:12.5px}
 .srcbar button[aria-pressed="true"]{background:var(--accent);color:var(--panel);border-color:var(--accent)}
@@ -164,10 +165,10 @@ details.psg summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
 .optpop{position:fixed;z-index:40;max-width:min(440px,92vw);max-height:50vh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px 12px;font-size:12.5px}
 .optpop .pophead{display:flex;gap:8px;align-items:baseline;font-size:14px}
 .optpop .names{margin-top:6px}
-.both{display:grid;gap:10px;align-items:start}
-.both+.both,details.psg .both{margin-top:8px}
-aside.drawer.wide .both{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-aside.drawer.wide .both>.pdfbox{position:sticky;top:0}
+.both{display:grid;gap:12px;align-items:start;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.both+.both{margin-top:8px}
+.both>.pdfbox{position:sticky;top:0}
+@media (max-width:900px){.both{grid-template-columns:1fr}.both>.pdfbox{position:static}}
 .notice{border-left:3px solid var(--warn);background:color-mix(in srgb,var(--warn) 8%,var(--panel));padding:10px 12px;border-radius:4px;font-size:13px}
 .files{display:grid;gap:8px;margin-top:12px}
 .file{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--sunk);padding:8px 10px;border-radius:6px;font-size:13px}
@@ -953,7 +954,8 @@ function findPdfFor(sheet, n) {
 // 보기 방식·넓게 보기는 이 브라우저에만 기억한다(편의 기능, 실패해도 기본값으로 동작)
 function loadPref(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function savePref(k, v) { try { localStorage.setItem(k, v); } catch (e) { } }
-S.srcMode = loadPref("csat27-srcmode") || undefined;
+try { localStorage.removeItem("csat27-srcmode"); } catch (e) { } // 예전 저장값(기본 보기가 바뀌어 버린다)
+S.srcMode = loadPref("csat27-view") || undefined;
 S.wide = loadPref("csat27-wide") === "1";
 
 // 문제지의 한 영역 [쪽, x0, y0, x1, y1](PDF 좌표, 위가 0)을 상자 폭에 맞춰 선명하게 그린다
@@ -983,10 +985,11 @@ function renderDrawer() {
   const qsh = S.qx?.sheets?.[d.sheet], qx = qsh?.questions?.[String(d.n)];
   const clipOk = !!(hit && qx && qx.clips.length && hit.pdf.name === qsh.file);
   const psg = qx?.passage ? qsh.passages[qx.passage] : null;
-  const modes = [...(clipOk ? [["clip", "문항"]] : []), ...(clipOk ? [["both", "문항+텍스트"]] : []), ...(hit ? [["page", "쪽 전체"]] : []), ...(qx ? [["text", "텍스트"]] : [])];
+  // 기본은 문항+텍스트(왼쪽 원문 · 오른쪽 텍스트)
+  const modes = [...(clipOk ? [["both", "문항+텍스트"], ["clip", "문항"]] : []), ...(hit ? [["page", "쪽 전체"]] : []), ...(qx ? [["text", "텍스트"]] : [])];
   const mode = modes.some(m => m[0] === S.srcMode) ? S.srcMode : (modes[0]?.[0] || null);
   const psgLabel = psg ? `공통 지문 [${psg.range[0]}～${psg.range[1]}]` : "";
-  const srcBar = modes.length ? `<div class="srcbar" role="group" aria-label="원문제 보기 방식">${modes.map(([k, l]) => `<button class="btn" data-mode="${k}" aria-pressed="${k === mode}">${l}</button>`).join("")}<button class="btn" id="dWide" aria-pressed="${!!S.wide}">넓게 보기</button></div>` : "";
+  const srcBar = modes.length ? `<div class="srcbar" role="group" aria-label="원문제 보기 방식">${modes.map(([k, l]) => `<button class="btn" data-mode="${k}" aria-pressed="${k === mode}">${l}</button>`).join("")}<button class="btn" id="dWide" aria-pressed="${!!S.wide}">전체 폭</button></div>` : "";
   const pageBox = hit ? `<div class="pdfbox"><div class="pagebar"><span class="muted">${esc(hit.pdf.name)}</span><button class="btn" id="pPrev">이전</button><span class="mono">${d.page}/${hit.pdf.pages}쪽</span><button class="btn" id="pNext">다음</button>${hit.cands.length ? `<span class="muted">후보</span>${hit.cands.map(p => `<button class="btn" data-page="${p}" aria-pressed="${p === d.page}">${p}쪽</button>`).join("")}` : '<span class="muted">번호를 찾지 못해 1쪽부터 보여 줍니다</span>'}</div><canvas id="pCanvas"></canvas></div>` : "";
   const notes = [];
   if (qx?.eq) notes.push("수식은 글자 위치를 보고 옮겼습니다. 분수는 (분자)/(분모), 지수는 ^, 아래첨자는 _로 적었고 선분 위 줄 같은 표시는 빠집니다. 정확한 식은 원문에서 확인하세요.");
@@ -1000,7 +1003,7 @@ function renderDrawer() {
   if (mode === "clip") {
     srcBody = `<div class="pdfbox">${psg ? `${psgHead}<div class="clips" id="psgClips"></div>${qHead}` : ""}<div class="clips" id="qClips"></div></div>`;
   } else if (mode === "both") {
-    // 기본 폭에서는 원문 아래 텍스트, 넓게 보기에서는 왼쪽 원문·오른쪽 텍스트
+    // 왼쪽 원문 · 오른쪽 텍스트 (화면 폭 900px 미만에서만 위아래)
     srcBody = `${psg ? `${psgHead}<div class="both"><div class="pdfbox"><div class="clips" id="psgClips"></div></div><div class="qtext">${esc(psg.text)}</div></div>${qHead}` : ""}<div class="both"><div class="pdfbox"><div class="clips" id="qClips"></div></div><div>${noteHtml}<div class="qtext">${esc(qx.text)}</div></div></div>`;
   } else if (mode === "page") {
     srcBody = pageBox;
@@ -1021,7 +1024,7 @@ function renderDrawer() {
   $("#qNext").onclick = () => { if (i < sh.qs.length - 1) openDrawer(d.sheet, sh.qs[i + 1].n); };
   $("#dBody").onscroll = () => { if (S.pop && !S.pop.pinned) hidePop(); else if (S.pop) placePop(); };
   $("#dClose").onclick = () => { S.drawer = null; renderDrawer(); };
-  el.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.srcMode = b.dataset.mode; savePref("csat27-srcmode", S.srcMode); renderDrawer(); });
+  el.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { S.srcMode = b.dataset.mode; savePref("csat27-view", S.srcMode); renderDrawer(); });
   const wb = $("#dWide"); if (wb) wb.onclick = () => { S.wide = !S.wide; savePref("csat27-wide", S.wide ? "1" : ""); renderDrawer(); };
   if (mode === "clip" || mode === "both") {
     if (psg) renderClips($("#psgClips"), hit.pdf.doc, psg.clips);
@@ -1061,8 +1064,10 @@ function renderReveal() {
   const groups = {}; ms.forEach(m => { const a = m.ans[d.sheet]?.[i]; if (!a) return; const k = a.st === 0 ? "정답" : a.st === 1 ? fmtAns(d.sheet, q.n, a.v) : ST_TXT[a.st]; (groups[k] || (groups[k] = { st: a.st, ms: [] })).ms.push(m); });
   const okN = groups["정답"]?.ms.length || 0;
   const rows = Object.entries(groups).sort((a, b) => a[1].st - b[1].st || b[1].ms.length - a[1].ms.length).map(([k, g]) => `<div class="ansrow"><span class="tag ${g.st === 0 ? "pill ok" : g.st === 1 ? "pill bad" : g.st === 2 ? "pill warn" : "pill na"}">${esc(k)}</span><div class="names">${g.ms.sort((a, b) => byRank(a, b)).map(m => `<span title="${esc(GROUPS[m.g])}"><i class="dot g-${m.g}"></i> ${esc(m.name)}</span>`).join("")}</div></div>`).join("");
-  box.innerHTML = `<div class="kv"><div><b>정답(가답안)</b><span>${ansShown(d.sheet, q) ? esc(fmtAns(d.sheet, q.n, q.ans)) : '<span class="muted hidden-ans">가림 · 위 \'정답 보기\'</span>'}</span></div><div><b>맞힌 모델</b><span>${okN}/${ms.length}</span></div><div><b>형식</b><span style="font-family:var(--f-body);font-size:13px">${isMultipleChoice(d.sheet, q.n) ? "5지 선다" : "단답형"}</span></div></div>
-    <div><div class="muted" style="font-size:12px;margin-bottom:6px">모델별 답안 (현재 필터 기준)</div><div class="ansgrp">${rows}</div></div>`;
+  const shown = ansShown(d.sheet, q);
+  // 답하기 전(정답 보기 끔)에는 맞힌 모델 수만 보이고, 모델별 답안(오답 값으로 정답을 좁힐 수 있음)은 숨긴다
+  box.innerHTML = `<div class="kv"><div><b>정답(가답안)</b><span>${shown ? esc(fmtAns(d.sheet, q.n, q.ans)) : '<span class="muted hidden-ans">가림 · 위 \'정답 보기\'</span>'}</span></div><div><b>맞힌 모델</b><span>${okN}/${ms.length}</span></div><div><b>형식</b><span style="font-family:var(--f-body);font-size:13px">${isMultipleChoice(d.sheet, q.n) ? "5지 선다" : "단답형"}</span></div></div>
+    <div><div class="muted" style="font-size:12px;margin-bottom:6px">모델별 답안 (현재 필터 기준)</div>${shown ? `<div class="ansgrp">${rows}</div>` : '<p class="muted" style="margin:0;font-size:12.5px">답하거나 \'정답 보기\'를 켜면 보입니다.</p>'}</div>`;
 }
 function setMine(v) {
   const c = curQ(); if (!c) return;
@@ -1071,7 +1076,8 @@ function setMine(v) {
 }
 function renderMyAns() {
   const c = curQ(), box = $("#myAns"); if (!c || !box) return;
-  const { d, i, q } = c, mine = myResult(d.sheet, q), reveal = true, shown = ansShown(d.sheet, q), mc = isMultipleChoice(d.sheet, q.n);
+  // 답하기 전(정답 보기 끔)에는 보기별 모델 수·모델이 낸 값을 숨긴다(정답을 짐작할 수 있으므로)
+  const { d, i, q } = c, mine = myResult(d.sheet, q), shown = ansShown(d.sheet, q), reveal = shown, mc = isMultipleChoice(d.sheet, q.n);
   const cnt = key => optModels(d.sheet, i, q, key).length;
   const cls = v => shown && v === Number(q.ans) ? "ok" : mine && mine.v === v && !mine.ok ? "bad" : "";
   const extra = () => [2, 3].map(st => cnt("st" + st) ? `<button class="opt na" data-opt="st${st}">${ST_TXT[st]}<small>${cnt("st" + st)}</small></button>` : "").join("");
@@ -1085,19 +1091,20 @@ function renderMyAns() {
   }
   const verdict = mine
     ? `<p class="verdict ${mine.ok ? "ok" : "bad"}">${mine.ok ? "정답입니다" : `오답입니다 · 정답 ${esc(fmtAns(d.sheet, q.n, q.ans))}`} <button class="linkbtn" id="myRetry">다시 풀기</button></p>`
-    : `<p class="muted" style="font-size:12.5px;margin:0">${mc ? "보기를 누르면 내 답으로 채점합니다(숫자 키 1~5도 됩니다)." : "답을 입력하고 확인을 누르면 채점합니다."}${reveal ? " 보기에 마우스를 올리거나 누르면 그 답을 고른 모델이 나옵니다." : ""}</p>`;
+    : `<p class="muted" style="font-size:12.5px;margin:0">${mc ? "보기를 누르면 내 답으로 채점합니다(숫자 키 1~5도 됩니다)." : "답을 입력하고 확인을 누르면 채점합니다."}${reveal ? " 보기에 마우스를 올리거나 누르면 그 답을 고른 모델이 나옵니다." : " 답하면 보기마다 그 답을 고른 모델 수와 목록이 보입니다."}</p>`;
   const st = myStats(d.sheet);
   box.innerHTML = `<div class="myhead"><b>내 답 확인</b><label class="ctl"><input type="checkbox" id="ansT" ${S.showAns ? "checked" : ""}> 정답 보기</label></div>
     ${body}${verdict}
     <p class="mystat">이 과목 내 기록: ${st.total}문항 중 ${st.done}문항 풀어 ${st.ok}개 맞힘 · ${st.pts}점${st.done ? ` <button class="linkbtn" id="myClear">이 과목 기록 지우기</button>` : ""}</p>`;
   box.querySelectorAll("[data-opt]").forEach(b => {
     const key = /^st/.test(b.dataset.opt) ? b.dataset.opt : Number(b.dataset.opt);
-    b.onmouseenter = () => { if (!(S.pop && S.pop.pinned)) showPop(b, key, false); };
+    b.onmouseenter = () => { if (ansShown(d.sheet, q) && !(S.pop && S.pop.pinned)) showPop(b, key, false); };
     b.onmouseleave = () => { if (S.pop && !S.pop.pinned) hidePop(); };
     b.onclick = e => {
       e.stopPropagation();
       const was = S.pop && S.pop.pinned && S.pop.key === key;
       if (mc && typeof key === "number" && !myResult(d.sheet, q)) setMine(key);
+      if (!ansShown(d.sheet, q)) return;
       if (was) { hidePop(); return; }
       const nb = $("#myAns").querySelector(`[data-opt="${b.dataset.opt}"]`) || b;
       showPop(nb, key, true);
