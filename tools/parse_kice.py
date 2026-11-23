@@ -47,6 +47,12 @@ CONTENT_BOTTOM = 1076.0
 NUM_RE = re.compile(r"^\s*(\d{1,2})\s*\.(?!\d)")
 RNG_RE = re.compile(r"^\s*\[\s*(\d{1,2})\s*[～~∼〜\-–]\s*(\d{1,2})\s*\]")
 CHOICE = "①②③④⑤"
+SPEAKER = r"(?:[갑을병정무]|학생\s?\d?|교사|선생님|사회자)\s?:"
+BULLET_RE = re.compile(r"^([ㄱ-ㅎ]\.\s|[◦•∙·]|" + SPEAKER + ")")  # 앞 줄이 끝까지 차도 이어 붙이지 않는 줄머리
+ITEM_RE = re.compile(r"^(\d{1,2}\.(?!\d)|[ㄱ-ㅎ]\.|\([가-하]\)|[◦•∙·*]|" + SPEAKER + ")")  # 다음 줄이 내어쓰기인 줄머리
+POINTS_RE = re.compile(r"^\[\d점\]")
+HEADER_RE = re.compile(r"^<[^<>]{1,12}>(\s+<[^<>]{1,12}>)*$")  # '<보 기>', '<조 건>'처럼 한 줄 전체가 상자 제목인 줄
+PLACE_RE = re.compile(r"^\([가-하]\)")
 
 BAR = 0xE06D
 EQ_SYM = {0xE044: "(", 0xE045: ")", 0xE046: "−", 0xE047: "=", 0xE048: "+", 0xE049: "[", 0xE04A: "]",
@@ -307,7 +313,7 @@ def split_side(rows: list[list[Tok]], med: float) -> list[tuple[list[list[Tok]],
     return blocks
 
 
-def block_lines(rows: list[list[Tok]]) -> list[tuple[str, float, float]]:
+def block_lines(rows: list[list[Tok]]) -> list[tuple[str, float, float, float]]:
     lines = []
     for row in rows:
         m = max(t.size for t in row)
@@ -337,7 +343,8 @@ def block_lines(rows: list[list[Tok]]) -> list[tuple[str, float, float]]:
         flush()
         s = re.sub(r" {4,}", "   ", "".join(parts)).strip()
         if s and s.replace(" ", "") not in NOTE_LINES:
-            lines.append((s, max(t.x1 for t in row if not t.space) if any(not t.space for t in row) else 0, m))
+            ink = [t for t in row if not t.space]
+            lines.append((s, max(t.x1 for t in ink) if ink else 0, m, min(t.x0 for t in ink) if ink else 0))
     return lines
 
 
@@ -353,14 +360,21 @@ def clip_text(toks: list[Tok], text_right: float) -> str:
         if not lines:
             continue
         # 오른쪽 끝까지 찬 줄은 줄바꿈이 아니라 이어지는 문장으로 본다(나뉜 묶음은 그 묶음의 오른쪽 끝 기준)
-        right_edge = max(r for _, r, _ in lines) if is_split else text_right
-        out = ""
-        for k, (s, right, m) in enumerate(lines):
+        right_edge = max(ln[1] for ln in lines) if is_split else text_right
+        out, joined = "", False
+        for k, (s, right, m, left) in enumerate(lines):
             out += s
             if k + 1 < len(lines):
-                nxt = lines[k + 1][0]
+                nxt, nright, nm, nleft = lines[k + 1]
                 full = right >= right_edge - 1.2 * m
-                out += " " if full and nxt[0] not in CHOICE and not RNG_RE.match(nxt) else "\n"
+                # 끝까지 찬 줄 뒤라도 다음 줄이 들여 쓰여 있으면 새 문단이다. 단, 이 줄이 문단의 첫 줄이거나
+                # (번호·보기·'갑:' 다음의 내어쓰기) 그다음 줄도 같은 위치에서 이어지면(내어쓰기) 문단이 아니다.
+                # '(가)' 빈칸 상자로 시작하는 줄은 상자 여백 때문에 들여 쓴 것처럼 보이므로 뺀다.
+                hang = k + 2 < len(lines) and nright >= right_edge - 1.2 * nm and abs(lines[k + 2][3] - nleft) < 0.3 * m
+                indent = (nleft > left + 0.6 * m and joined and not hang and not PLACE_RE.match(nxt) and not POINTS_RE.match(nxt)
+                          and not (s[0] in CHOICE or ITEM_RE.match(s)))
+                joined = full and not indent and nxt[0] not in CHOICE and not RNG_RE.match(nxt) and not BULLET_RE.match(nxt) and not HEADER_RE.match(nxt)
+                out += " " if joined else "\n"
         outs.append(out)
     return "\n".join(outs)
 

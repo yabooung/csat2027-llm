@@ -111,12 +111,12 @@ aside.drawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);backgro
 .dhead{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-bottom:1px solid var(--line)}
 .dhead h3{margin:0;font-size:17px}
 .dhead .x{margin-left:auto}
-.dbody{overflow:auto;padding:14px 16px;display:grid;gap:14px;align-content:start}
+.dbody{overflow:auto;padding:18px 20px 28px;display:grid;gap:28px;align-content:start}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
 .kv div{background:var(--sunk);border-radius:6px;padding:8px 10px}
 .kv b{display:block;font-size:11px;color:var(--muted);font-weight:500}
 .kv span{font-family:var(--f-mono);font-size:15px;font-weight:600}
-.ansgrp{display:grid;gap:6px}
+.ansgrp{display:grid;gap:10px}
 .ansrow{display:grid;grid-template-columns:62px 1fr;gap:8px;align-items:start;font-size:12.5px}
 .ansrow .tag{font-family:var(--f-body);font-size:14px;font-weight:600;text-align:center;border-radius:4px;padding:2px 0}
 .kv span{font-family:var(--f-body)!important;font-size:16px!important}
@@ -137,16 +137,26 @@ aside.drawer.wide{width:100%}
 .clips canvas+canvas{margin-top:6px}
 details.psg{margin-bottom:8px}
 details.psg summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
-.qtext{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-size:15px;line-height:1.75;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:12px 14px}
+.qtext{white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere;font-size:15px;line-height:1.8;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:16px 18px}
 .qtext+.qtext{margin-top:8px}
+.qtext p{margin:0 0 1em}
+.qtext .qlead{color:var(--muted);font-size:14px}
+.qtext .qitem{margin-bottom:.45em}
+.qtext .qitem+p:not(.qitem){margin-top:1em}
+.qtext .qbox{border:1px solid var(--line);border-radius:4px;padding:.7em 1em;margin:.2em 0 1em}
+.qtext .qboxh{text-align:center;color:var(--muted);font-size:13px;margin-bottom:.5em;letter-spacing:.3em}
+.qtext .qopts{display:grid;gap:.55em;margin:1.4em 0 1em}
+.qtext .qopts>div{padding-left:1.4em;text-indent:-1.4em}
+.qtext>:last-child,.qtext .qbox>:last-child{margin-bottom:0}
 .srcnote{font-size:12.5px;color:var(--muted);margin:0 0 8px}
 .dhead .qnav{display:flex;gap:6px;margin-left:auto;align-items:center}
 .dhead .qnav .x{margin-left:0}
-.reveal{display:grid;gap:14px}
-.psghead{font-size:12.5px;font-weight:600;color:var(--muted);margin:2px 0 6px}
-.pdfbox .clips+.psghead,.both+.psghead{margin-top:12px}
+.reveal{display:grid;gap:18px}
+.psghead{font-size:12.5px;font-weight:600;color:var(--muted);margin:2px 0 8px}
+.pdfbox .clips+.psghead,.both+.psghead{margin-top:28px}
+.qtext+.psghead{margin-top:24px}
 .kv .hidden-ans{font-size:13px!important;font-weight:500}
-.myans{border:1px solid var(--line);border-radius:6px;padding:10px 12px;display:grid;gap:8px;background:var(--sunk)}
+.myans{border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:grid;gap:12px;background:var(--sunk)}
 .myhead{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-size:13px}
 .opts{display:flex;flex-wrap:wrap;gap:6px}
 .opt{display:inline-flex;align-items:center;gap:6px;min-width:52px;justify-content:center;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:600 16px var(--f-body);cursor:pointer}
@@ -165,7 +175,7 @@ details.psg summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
 .optpop{position:fixed;z-index:40;max-width:min(440px,92vw);max-height:50vh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:10px 12px;font-size:12.5px}
 .optpop .pophead{display:flex;gap:8px;align-items:baseline;font-size:14px}
 .optpop .names{margin-top:6px}
-.both{display:grid;gap:12px;align-items:start;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.both{display:grid;gap:16px;align-items:start;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .both+.both{margin-top:8px}
 .both>.pdfbox{position:sticky;top:0}
 @media (max-width:900px){.both{grid-template-columns:1fr}.both>.pdfbox{position:static}}
@@ -900,7 +910,7 @@ async function restorePdfs() {
 async function autoLoadLocalPdfs() {
   if (!/^https?:$/.test(location.protocol)) return;
   // tools/parse_kice.py가 만든 문항별 영역·텍스트(로컬에만 있음)
-  try { const r = await fetch(LOCAL_PDF_DIR + "questions.json"); if (r.ok) { S.qx = await r.json(); if (S.drawer) renderDrawer(); } } catch (e) { }
+  try { const r = await fetch(LOCAL_PDF_DIR + "questions.json", { cache: "no-cache" }); if (r.ok) { S.qx = await r.json(); if (S.drawer) renderDrawer(); } } catch (e) { }
   let n = 0;
   for (const [code, slot] of LOCAL_PDFS) {
     if (S.pdfs.some(p => p.slot === slot)) continue; // 직접 연 파일이 있으면 그것을 쓴다
@@ -974,6 +984,29 @@ async function renderClips(box, doc, clips) {
 }
 
 /* ---------- 문항 상세 서랍 ---------- */
+// 파싱 텍스트를 문단·<보기> 상자·보기(①~⑤) 단위로 나눠 여백을 준다.
+// 문장이 끝나지 않은 줄바꿈(수식 줄 등)은 같은 문단 안에서 줄만 바꾼다.
+const QT_OPT = /^[①②③④⑤]/, QT_BOX = /^<\s*보\s*기\s*>$/, QT_ITEM = /^([ㄱ-ㅎ]\.|[◦•∙·*]|[^\s:()]{1,8}\s?:)/, QT_MARK = /^(\([가-하]\)|\[[^\d\]])/, QT_END = /([.?!。…]|[.?!]["”’'」』]|\])$/;
+function qhtml(t) {
+  const out = []; let para = [], paraCls = "", opts = [], box = null;
+  const sink = () => box || out;
+  const flushP = () => { if (para.length) { sink().push(`<p${paraCls ? ` class="${paraCls}"` : ""}>${esc(para.join("\n"))}</p>`); para = []; paraCls = ""; } };
+  const flushBox = () => { if (box) { out.push(`<div class="qbox"><div class="qboxh">보기</div>${box.join("")}</div>`); box = null; } };
+  const flushO = () => { if (opts.length) { out.push(`<div class="qopts">${opts.map(o => `<div>${esc(o)}</div>`).join("")}</div>`); opts = []; } };
+  String(t || "").split("\n").map(s => s.replace(/\s+$/, "")).filter(s => s.trim()).forEach((ln, k) => {
+    if (QT_OPT.test(ln)) { flushP(); flushBox(); opts.push(ln); return; }
+    flushO();
+    if (k === 0 && /^\[\d/.test(ln)) { out.push(`<p class="qlead">${esc(ln)}</p>`); return; }
+    if (QT_BOX.test(ln)) { flushP(); flushBox(); box = []; return; }
+    const item = QT_ITEM.test(ln);
+    if (item || QT_MARK.test(ln)) flushP();
+    if (!para.length && item) paraCls = "qitem";
+    para.push(ln);
+    if (QT_END.test(ln)) flushP();
+  });
+  flushP(); flushBox(); flushO();
+  return out.join("");
+}
 function openDrawer(sheet, n) { S.drawer = { sheet, n, page: null }; renderDrawer(); }
 function renderDrawer() {
   hidePop();
@@ -1004,11 +1037,11 @@ function renderDrawer() {
     srcBody = `<div class="pdfbox">${psg ? `${psgHead}<div class="clips" id="psgClips"></div>${qHead}` : ""}<div class="clips" id="qClips"></div></div>`;
   } else if (mode === "both") {
     // 왼쪽 원문 · 오른쪽 텍스트 (화면 폭 900px 미만에서만 위아래)
-    srcBody = `${psg ? `${psgHead}<div class="both"><div class="pdfbox"><div class="clips" id="psgClips"></div></div><div class="qtext">${esc(psg.text)}</div></div>${qHead}` : ""}<div class="both"><div class="pdfbox"><div class="clips" id="qClips"></div></div><div>${noteHtml}<div class="qtext">${esc(qx.text)}</div></div></div>`;
+    srcBody = `${psg ? `${psgHead}<div class="both"><div class="pdfbox"><div class="clips" id="psgClips"></div></div><div class="qtext">${qhtml(psg.text)}</div></div>${qHead}` : ""}<div class="both"><div class="pdfbox"><div class="clips" id="qClips"></div></div><div>${noteHtml}<div class="qtext">${qhtml(qx.text)}</div></div></div>`;
   } else if (mode === "page") {
     srcBody = pageBox;
   } else if (mode === "text") {
-    srcBody = `${noteHtml}${psg ? `${psgHead}<div class="qtext">${esc(psg.text)}</div>${qHead}` : ""}<div class="qtext">${esc(qx.text)}</div>`;
+    srcBody = `${noteHtml}${psg ? `${psgHead}<div class="qtext">${qhtml(psg.text)}</div>${qHead}` : ""}<div class="qtext">${qhtml(qx.text)}</div>`;
   } else {
     srcBody = `<div class="notice">이 과목의 문제지 PDF가 아직 열려 있지 않습니다. <a href="#source">원문제 탭</a>에서 평가원 PDF를 열거나, 로컬에서는 pdf/ 폴더에 받아 두면 여기에 해당 페이지가 나옵니다. <a href="${KICE}" target="_blank" rel="noopener">평가원 문제 및 정답 페이지 열기</a></div>`;
   }
